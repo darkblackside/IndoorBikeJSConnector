@@ -1,0 +1,20 @@
+{
+  "name": "bluetoothconnect",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "web-bluetooth": "^0.1.2"
+  },
+  "devDependencies": {
+    "@types/web-bluetooth": "^0.0.19",
+    "esm": "^3.2.25",
+    "typescript": "^5.2.2"
+  }
+}
