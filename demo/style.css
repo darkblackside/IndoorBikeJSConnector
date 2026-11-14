@@ -1,0 +1,30 @@
+:root {
+  --bg: #f6f7f9; --surface: #fff; --text: #16181d; --muted: #5d6573;
+  --accent: #1f6feb; --ok: #1a7f37; --warn: #9a6700; --off: #8c959f; --border: #d8dde3;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0f1115; --surface: #181b21; --text: #e6e8eb; --muted: #9aa3ad;
+    --accent: #4c8dff; --ok: #3fb950; --warn: #d29922; --off: #59616b; --border: #2b3038; }
+}
+* { box-sizing: border-box; }
+body { margin: 0 auto; max-width: 960px; padding: 16px; background: var(--bg); color: var(--text); }
+h1 { font-size: 1.4rem; margin: 0 0 4px; }
+h2 { font-size: 1rem; margin: 0 0 10px; color: var(--muted); }
+section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 16px 0; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+button, input, select { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+input[type="number"] { width: 6em; }
+input[type="range"] { padding: 0; }
+button { cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; min-width: 11em; }
+.muted { color: var(--muted); }
+.warn { color: var(--warn); }
+.status::before { content: "●"; margin-right: 6px; color: var(--off); }
+.status[data-s="connected"]::before { color: var(--ok); }
+.status[data-s="connecting"]::before, .status[data-s="reconnecting"]::before { color: var(--warn); }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.metrics .label { display: block; color: var(--muted); font-size: .85rem; }
+.metrics b { font-size: 2.2rem; font-variant-numeric: tabular-nums; }
+.badge { font-size: .75rem; padding: 2px 8px; border-radius: 999px; background: var(--off); color: #fff; margin-left: 6px; }
+#log { margin: 0; max-height: 220px; overflow: auto; font-size: .8rem; white-space: pre-wrap; color: var(--muted); }

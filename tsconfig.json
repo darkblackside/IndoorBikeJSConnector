@@ -1,10 +1,18 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["web-bluetooth", "vite/client"],
+    "types": [
+      "web-bluetooth",
+      "vite/client",
+      "node"
+    ],
     "noEmit": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
@@ -17,5 +25,11 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["src", "vite.config.ts"]
+  "include": [
+    "src",
+    "testing",
+    "test",
+    "demo",
+    "*.config.ts"
+  ]
 }

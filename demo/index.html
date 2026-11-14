@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Indoor Bike Test Bench</title>
+  </head>
+  <body>
+    <h1>Indoor Bike Test Bench</h1>
+    <p class="muted">Manual test page for the <code>indoor-bike-js-connector</code> library. Not part of the library.</p>
+
+    <section>
+      <h2>Devices</h2>
+      <div class="row">
+        <label><input type="radio" name="source" value="real" checked /> Real Bluetooth</label>
+        <label><input type="radio" name="source" value="sim" /> Simulated</label>
+        <select id="sim-protocol" disabled>
+          <option value="ftms">FTMS trainer</option>
+          <option value="wahoo">Wahoo legacy KICKR</option>
+          <option value="tacx-fec">Tacx FE-C</option>
+          <option value="cycling-power">Power meter (read-only)</option>
+        </select>
+        <span id="bt-support" class="warn"></span>
+      </div>
+      <div class="row">
+        <button id="connect-trainer" class="primary">Connect trainer</button>
+        <span id="trainer-status" class="status">disconnected</span>
+      </div>
+      <div class="row">
+        <button id="connect-hrm" class="primary">Connect heart rate</button>
+        <span id="hrm-status" class="status">disconnected</span>
+      </div>
+      <div class="row muted" id="sim-controls" hidden>
+        Simulated rider: cadence <input id="sim-cadence" type="range" min="0" max="130" value="90" /> <span id="sim-cadence-v">90</span> rpm
+        <button id="sim-drop">Drop connection</button>
+      </div>
+    </section>
+
+    <section class="metrics">
+      <div><span class="label">Power</span><b id="power">–</b> W</div>
+      <div><span class="label">Cadence</span><b id="cadence">–</b> rpm</div>
+      <div><span class="label">Speed</span><b id="speed">–</b> km/h</div>
+      <div><span class="label">Heart rate</span><b id="heartRate">–</b> bpm</div>
+      <div><span class="label">Distance</span><b id="distance">–</b> m</div>
+    </section>
+
+    <section>
+      <h2>Control <span id="mode" class="badge">none</span></h2>
+      <div class="row">
+        <strong>ERG</strong>
+        <button data-erg-step="-10">−10</button>
+        <input id="erg" type="number" min="0" max="2000" step="5" value="150" />
+        <button data-erg-step="10">+10</button>
+        <button id="erg-set">Set W</button>
+      </div>
+      <div class="row">
+        <strong>SIM</strong>
+        grade <input id="grade" type="range" min="-10" max="20" step="0.5" value="0" />
+        <span id="grade-v">0.0</span> %
+        wind <input id="wind" type="number" step="0.5" value="0" /> m/s
+      </div>
+      <div class="row">
+        <button id="free-ride">Free ride</button>
+        <span class="muted">rider weight <input id="weight" type="number" value="75" min="30" max="200" /> kg</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Events</h2>
+      <pre id="log"></pre>
+    </section>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

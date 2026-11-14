@@ -1,46 +1,94 @@
 # Indoor Bike JS Connector
 
-Browser app that connects to a smart trainer and a heart rate strap over **Web Bluetooth**,
-shows live power, cadence, speed and heart rate, and controls the trainer in **ERG mode**
-(hold a target wattage).
+A TypeScript library (no UI, no runtime dependencies) that connects smart trainers and
+heart rate straps over **Web Bluetooth**, so you can build games and training apps on top of them.
+It auto-detects the trainer's protocol and gives you one API for live data and resistance control,
+in either **ERG** (hold a target wattage) or **SIM** (road grade/wind) mode.
 
-- Trainer: any trainer with the Bluetooth **Fitness Machine Service (FTMS)**, e.g. Wahoo KICKR / KICKR CORE
-  (FTMS enabled in firmware), Tacx Neo/Flux, Elite, Saris, Zwift Hub.
-- Heart rate: any standard BLE heart rate strap (Heart Rate Service).
-- No runtime dependencies; TypeScript 7 + Vite 8 for development.
+| Protocol | Devices | Data | ERG | SIM |
+| --- | --- | :-: | :-: | :-: |
+| **FTMS** (Fitness Machine Service) | Current Wahoo KICKR/CORE/SNAP, Tacx/Garmin, Elite, Saris, JetBlack, Zwift Hub, Wattbike… | ✓ | ✓ | ✓ |
+| **Wahoo legacy** (Cycling Power + Wahoo control point) | Older KICKR / KICKR SNAP / KICKR CORE without FTMS firmware | ✓ | ✓ | ✓ |
+| **Tacx FE-C over BLE** | Tacx Neo/Flux/Vortex/Bushido/Genius, some Elite | ✓ | ✓ | ✓ |
+| **Cycling Power** | Power meters and other trainers (read-only fallback) | ✓ | – | – |
+| **Heart Rate Service** | Any BLE HR strap/watch | ✓ | | |
 
-## Requirements
+Protocols are tried in that order. If a device offers FTMS but refuses control (some older
+Wahoo firmware), the library falls back to the next protocol on the same device.
 
-- Node.js ≥ 22.12
-- A browser with Web Bluetooth: Chrome or Edge on desktop/Android (Linux may need
-  `chrome://flags/#enable-experimental-web-platform-features`). Firefox and Safari don't support it;
-  on iOS use the Bluefy browser.
-- Web Bluetooth needs a secure context: `http://localhost` or HTTPS.
+## Install
+
+```sh
+npm install indoor-bike-js-connector   # or point at this git repo
+```
+
+Web Bluetooth works in Chrome and Edge on desktop and Android (Bluefy browser on iOS). It needs a
+secure context (`https://` or `http://localhost`), and the device chooser can only be opened
+from a user gesture.
 
 ## Usage
 
-```sh
-npm install
-npm run dev          # http://localhost:5173
-npm run dev:https    # HTTPS on your LAN (self-signed cert) – for a phone/tablet
-npm test             # parser/encoder unit tests
-npm run build        # type-check + production build into dist/
+```ts
+import { IndoorBike } from "indoor-bike-js-connector";
+
+const bike = new IndoorBike({ rider: { riderWeight: 78, bikeWeight: 8.5 } });
+
+bike.on("data", (d) => {
+  // { power, cadence, speed, heartRate, distance }; a field is undefined until reported
+  player.setPower(d.power ?? 0);
+});
+bike.on("status", ({ device, status }) => hud.show(device, status)); // connecting/connected/reconnecting/disconnected
+bike.on("error", ({ device, error }) => console.warn(device, error));
+
+connectButton.onclick = () => bike.connectTrainer();      // opens the browser chooser
+hrButton.onclick = () => bike.connectHeartRateMonitor();
+
+// ERG
+bike.setTargetPower(220);
+
+// SIM: call it every frame if you like. Updates are coalesced (only the latest
+// is sent, one command in flight, unchanged values skipped).
+bike.setSimulation({ grade: track.gradeAt(player.x), windSpeed: 2 });
+
+bike.freeRide();   // flat road, rider controls effort
+bike.disconnect();
 ```
 
-Click **Connect trainer**, pick the trainer in the browser's chooser, optionally **Connect heart rate**.
-Enter a target and press **Set** (or use ±10) to start ERG; **Free ride** releases ERG
-(switches the trainer to simulation mode on a flat road).
+- `bike.data` always holds the latest merged snapshot, so you can poll it in a game loop instead of using events.
+- `bike.trainer.protocolName`, `.capabilities` (`{ erg, simulation }`), `.powerRange` and `.mode` describe the connected trainer.
+- Links that drop unexpectedly are reconnected automatically (`autoReconnect`, `reconnectDelays`), and the last ERG/SIM mode is re-applied.
+- `connectTrainer({ device })` takes an already-known `BluetoothDevice` (e.g. from `navigator.bluetooth.getDevices()`) to reconnect without the chooser.
+- `Trainer` and `HeartRateMonitor` can be used on their own. The `IndoorBike` facade just combines them.
+- Pass `bluetooth` to use something other than `navigator.bluetooth` (for example the `webbluetooth` npm package in Node/Electron, or a mock).
+- Pass `drivers` to change the protocol order or add your own `ProtocolDriver`. Low-level encoders/decoders are exported as `ftms`, `wahoo`, `fec` and `cyclingPower`.
 
-If the trainer is also paired with Zwift, Wahoo app etc., close those first – FTMS allows one controller at a time.
+## Repository layout
 
-## Layout
+| Path | What | Published |
+| --- | --- | :-: |
+| `src/` | The library | ✓ |
+| `src/parsers/` | Pure byte encoders/decoders per protocol | ✓ |
+| `src/protocols/` | Protocol drivers: detection, handshake, ERG/SIM commands | ✓ |
+| `testing/` | Fake Web Bluetooth stack + simulated trainers (FTMS, Wahoo, Tacx, power meter) and HRM | – |
+| `test/` | Vitest unit tests (spec byte vectors) and integration tests against the simulators | – |
+| `demo/` | Manual test bench page (real Bluetooth or simulated devices) | – |
 
-| Path | What |
-| --- | --- |
-| `src/ftms/` | Pure byte parsers/encoders: Indoor Bike Data, Control Point, Heart Rate (unit-tested) |
-| `src/devices/sensor.ts` | Base class: chooser, connect, disconnect handling |
-| `src/devices/ftmsTrainer.ts` | FTMS trainer: data notifications, control point (request control, ERG, SIM) |
-| `src/devices/heartRateMonitor.ts` | Heart rate strap |
-| `src/deviceManager.ts` | Owns devices, forwards target power from the store |
-| `src/store.ts` | Observable app state |
-| `src/main.ts` | UI wiring |
+## Development
+
+Requires Node.js ≥ 22.12.
+
+```sh
+npm install
+npm test             # unit + integration tests (Node, no hardware needed)
+npm run typecheck
+npm run build        # library -> dist/ (ESM + .d.ts)
+npm run dev          # demo test bench at http://localhost:5173
+npm run dev:https    # same over HTTPS on your LAN, for testing from a phone/tablet
+```
+
+The demo can switch between real Bluetooth and the simulated devices, so ERG/SIM can be tried
+without a trainer.
+
+> Real-hardware status: the parsers are checked against the published specs (FTMS, Cycling Power,
+> ANT+ FE-C) and the Wahoo encoding follows the open-source implementations (GoldenCheetah and others).
+> So far everything has been verified only against the simulators. Please report results from real trainers.
