@@ -1,44 +1,20 @@
-import { Device } from "./device.js";
-import { IDevice } from "./iDevice.js";
-import { Store } from "./store.js";
+import { FtmsTrainer } from "./devices/ftmsTrainer.ts";
+import { HeartRateMonitor } from "./devices/heartRateMonitor.ts";
+import type { Store } from "./store.ts";
 
-export class DeviceManager
-{
-	private devices: Array<IDevice> = new Array<IDevice>();
-	private store: Store;
+/** Owns the connected devices and forwards store changes (target power) to them. */
+export class DeviceManager {
+  readonly trainer: FtmsTrainer;
+  readonly heartRateMonitor: HeartRateMonitor;
 
-	public constructor(store: Store)
-	{
-		this.store = store;
-	}
+  constructor(store: Store) {
+    this.trainer = new FtmsTrainer(store);
+    this.heartRateMonitor = new HeartRateMonitor(store);
 
-	public addDevice(device: Device): void
-	{
-		this.devices.push(device);
-        device.registerWatcher(this);
-	}
-
-    public updateStoreWattValue(value: number)
-    {
-        this.store.setCurrentWatt(value);
-    }
-    public updateStoreCadenceValue(value: number)
-    {
-        this.store.setCurrentCadence(value);
-    }
-    public updateStoreHeartRateValue(value: number)
-    {
-        this.store.setHeartrate(value);
-    }
-    public updateStoreSpeedValue(value: number)
-    {
-        this.store.setCurrentSpeed(value);
-    }
-
-    public updateDeviceWattValue(value: number)
-    {
-        this.devices.forEach(device => {
-            device.setTargetWatt(value);
-        });
-    }
+    store.subscribe((state, previous) => {
+      if (state.targetPower !== previous.targetPower) {
+        this.trainer.setTargetPower(state.targetPower);
+      }
+    });
+  }
 }

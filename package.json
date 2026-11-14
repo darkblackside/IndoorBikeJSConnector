@@ -1,20 +1,27 @@
 {
-  "name": "bluetoothconnect",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "indoor-bike-js-connector",
+  "version": "0.2.0",
+  "description": "Connect FTMS smart trainers and heart rate straps to the browser via Web Bluetooth",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "dev": "vite",
+    "dev:https": "vite --mode https",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc"
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "web-bluetooth": "^0.1.2"
-  },
   "devDependencies": {
-    "@types/web-bluetooth": "^0.0.19",
-    "esm": "^3.2.25",
-    "typescript": "^5.2.2"
+    "@types/web-bluetooth": "^0.0.22",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  },
+  "private": "true",
+  "engines": {
+    "node": ">=22.12.0"
   }
 }
