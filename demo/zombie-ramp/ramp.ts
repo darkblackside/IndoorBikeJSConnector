@@ -164,6 +164,23 @@ export class StopDetector {
   }
 }
 
+/**
+ * Where the horde settles behind a rider who holds the target, by cadence: 50 m at 90 rpm or more,
+ * 10 m at 40 rpm or less, on a straight line in between (0.8 m per rpm). Grinding a low cadence lets them close in.
+ */
+export function restGapForCadence(rpm: number): number {
+  const c = Math.min(90, Math.max(40, rpm));
+  return 10 + (c - 40) * 0.8;
+}
+
+/**
+ * A little life in the chase: how far (metres, within ±5) the horde surges ahead of or falls back from where it
+ * should be at time `t` (seconds). Two slow waves that never line up exactly, so it doesn't feel mechanical.
+ */
+export function gapSurge(t: number): number {
+  return 3 * Math.sin(t * 0.8) + 2 * Math.sin(t * 1.9 + 1.3);
+}
+
 /** Flat-road speed in m/s for a power, same physics as the library's SIM mode (84 kg system). */
 export function speedFromPower(watts: number, mass = 84, crr = 0.004, cw = 0.51): number {
   if (watts <= 0) return 0;

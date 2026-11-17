@@ -1,3 +1,12 @@
+// UI: @darkblackside/ui with the gamification theme, for the controls and buttons only (the city is a canvas).
+import "@darkblackside/ui/themes/gamification.css";
+import "@darkblackside/ui/base.css";
+import "@darkblackside/ui/button.js";
+import "@darkblackside/ui/field.js";
+import "@darkblackside/ui/check.js";
+import "@darkblackside/ui/fieldset.js";
+import "@darkblackside/ui/notice.js";
+import "@darkblackside/ui/tag.js";
 import "./style.css";
 import { IndoorBike, type ProtocolName } from "../../src/index.ts";
 import {
@@ -9,7 +18,9 @@ import {
 import { CityScene, darkColors } from "./city.ts";
 import {
   defaultRampConfig,
+  gapSurge,
   RampRecorder,
+  restGapForCadence,
   rampStateAt,
   speedFromPower,
   StopDetector,
@@ -31,7 +42,10 @@ const mmss = (s: number) => {
 const GAP_GAIN = 3;
 const START_GAP = 50;
 const MAX_GAP = 120;
-const restGap = (step: number) => Math.max(18, START_GAP - 2.5 * Math.max(0, step));
+/** Seconds over which the cadence is averaged before it moves the horde (cadence readings jump around). */
+const CADENCE_SMOOTHING = 2;
+/** How quickly the horde moves to its new resting distance after a cadence change (1/s; ~2.5 s to settle mostly). */
+const REST_RATE = 0.4;
 
 // --- devices -------------------------------------------------------------------------
 const fake = new FakeBluetooth();
@@ -72,7 +86,7 @@ function createBike(): IndoorBike {
     if (t) updateErgNote(b);
     $(t ? "#connect-trainer" : "#connect-hrm").textContent =
       status === "disconnected" ? (t ? "Connect trainer" : "Connect heart rate (optional)") : "Disconnect";
-    $<HTMLButtonElement>("#start").disabled = b.trainer.status !== "connected";
+    $<HTMLElementTagNameMap["bm-button"]>("#start").disabled = b.trainer.status !== "connected";
   });
   return b;
 }
@@ -167,6 +181,10 @@ const stop = new StopDetector();
 let t0 = 0;
 let elapsed = 0;
 let gap = START_GAP;
+/** The gap as drawn and shown: `gap` plus a small surge. Only `gap` decides whether they catch you. */
+let shownGap = START_GAP;
+/** Smoothed cadence; undefined until the device reports one (then the horde rests at 50 m as at 90 rpm). */
+let cadenceAvg: number | undefined;
 let currentStep = -2;
 let lastCountdown = -1;
 let bannerTimer: ReturnType<typeof setTimeout> | undefined;
@@ -198,6 +216,8 @@ $("#start").addEventListener("click", () => {
   scene = new CityScene();
   recorder = new RampRecorder(cfg);
   gap = START_GAP;
+  shownGap = START_GAP;
+  cadenceAvg = undefined;
   currentStep = -2;
   elapsed = 0;
   mode = "waiting";
@@ -261,6 +281,7 @@ function frame() {
     const v = 7;
     scene.update(dt, v * dt, START_GAP);
   } else if (mode === "waiting") {
+    shownGap = gap;
     scene.update(dt, 0, gap);
     renderHud("Get ready", rampStateAt(cfg, 0), p3);
     if (fresh && stop.isPedalling(d.cadence, d.power)) {
@@ -294,10 +315,15 @@ function frame() {
     // Small grace period after each target change while the trainer adjusts.
     const grace = st.elapsed < 4 && vMe < vZed;
     if (!grace) gap = Math.min(MAX_GAP, gap + (vMe - vZed) * GAP_GAIN * dt);
-    // While you hold the target the horde settles at a distance that shrinks every step:
-    // more tension, but holding the power never gets you caught.
-    if (vMe >= vZed * 0.99) gap += (restGap(st.step) - gap) * 0.08 * dt;
-    scene.update(dt, vMe * dt, Math.max(0, gap));
+    // While you hold the target the horde settles at a distance set by your cadence: 50 m at 90 rpm or more,
+    // 10 m at 40 rpm. Holding the power never gets you caught, but grinding lets them close in.
+    if (d.cadence !== undefined && fresh) {
+      cadenceAvg = cadenceAvg === undefined ? d.cadence : cadenceAvg + (d.cadence - cadenceAvg) * (1 - Math.exp(-dt / CADENCE_SMOOTHING));
+    }
+    if (vMe >= vZed * 0.99) gap += (restGapForCadence(cadenceAvg ?? 90) - gap) * (1 - Math.exp(-dt * REST_RATE));
+    // A little action: the horde surges and drops back by up to ~5 m (less when it is very close).
+    shownGap = Math.max(0.5, gap + gapSurge(elapsed) * Math.min(1, gap / 20));
+    scene.update(dt, vMe * dt, Math.max(0, shownGap));
 
     if (gap <= 0) finish("The zombies caught you.");
     else if (stop.update(now, d.cadence, d.power, fresh)) {
@@ -309,7 +335,7 @@ function frame() {
     }
     renderHud(st.phase === "warmup" ? "Warm-up" : `Step ${st.step + 1}`, st, p3);
   } else {
-    scene.update(dt, 0, Math.max(0, gap - dt * 8));
+    scene.update(dt, 0, Math.max(0, shownGap - dt * 8));
   }
 
   draw();
@@ -337,8 +363,8 @@ function renderHud(label: string, st: ReturnType<typeof rampStateAt>, p3: number
   }
   $("#cadence").textContent = d.cadence === undefined ? "–" : String(Math.round(d.cadence));
   $("#hr").textContent = d.heartRate === undefined ? "–" : String(d.heartRate);
-  $("#gap").textContent = String(Math.max(0, Math.round(gap)));
-  $("#gap").style.color = gap < 20 ? "var(--zed)" : "";
+  $("#gap").textContent = String(Math.max(0, Math.round(shownGap)));
+  $("#gap").style.color = shownGap < 20 ? "var(--zed)" : "";
   $("#horde").textContent = String(scene.horde.length);
 }
 

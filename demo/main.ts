@@ -1,3 +1,14 @@
+// UI: @darkblackside/ui with the gamification theme (fonts in index.html).
+import "@darkblackside/ui/themes/gamification.css";
+import "@darkblackside/ui/base.css";
+import "@darkblackside/ui/button.js";
+import "@darkblackside/ui/card.js";
+import "@darkblackside/ui/page-header.js";
+import "@darkblackside/ui/field.js";
+import "@darkblackside/ui/check.js";
+import "@darkblackside/ui/fieldset.js";
+import "@darkblackside/ui/notice.js";
+import "@darkblackside/ui/tag.js";
 import "./style.css";
 import { IndoorBike, type ProtocolName } from "../src/index.ts";
 import {
@@ -20,7 +31,8 @@ const simHrm = fake.add(createSimulatedHeartRateMonitor());
 simHrm.start(1000);
 const useSim = () => $<HTMLInputElement>('input[name="source"][value="sim"]').checked;
 
-$("#bt-support").textContent = "bluetooth" in navigator ? "" : "Web Bluetooth not available here – use Simulated, or Chrome/Edge.";
+$("#bt-support").textContent = "Web Bluetooth isn't available in this browser. Use Simulated, or open the page in Chrome or Edge.";
+$("#bt-support").hidden = "bluetooth" in navigator;
 if (!("bluetooth" in navigator)) $<HTMLInputElement>('input[name="source"][value="sim"]').checked = true;
 
 let bike = createBike();

@@ -73,9 +73,19 @@ export class Route {
   }
 }
 
+/** How fast a picked-up stray follows the rider, relative to the rider's speed: it drops back to the horde. */
+export const STRAGGLER_SPEED = 0.7;
+
 interface Zombie {
-  /** How far behind the horde's front it runs. */
+  /** How far behind the horde's front it runs (for a straggler: where it will join). */
   lag: number;
+  /**
+   * Set while it is a straggler: a stray the rider passed, chasing along the route on its own (its distance on the
+   * route). It falls back until the horde reaches it, then joins it right where it is.
+   */
+  s?: number;
+  /** Straggler only: its offset from its point on the route, easing from the side street it came from to its place in the street. */
+  drift?: { x: number; y: number };
   /** Sideways offset in the street. */
   side: number;
   phase: number;
@@ -156,23 +166,67 @@ export class CityScene {
     const front = this.s - gap;
     const k = 1 - Math.exp(-dt * 6);
     for (const z of this.horde) {
+      if (z.s !== undefined) {
+        this.updateStraggler(z, dt, ds, front);
+        continue;
+      }
       const p = this.route.at(front - z.lag);
-      const wob = Math.sin(this.time * 3 + z.phase) * 1.2;
-      const tx = p.x - p.dy * (z.side + wob);
-      const ty = p.y + p.dx * (z.side + wob);
-      z.x += (tx - z.x) * k;
-      z.y += (ty - z.y) * k;
+      const o = this.streetOffset(z, p);
+      z.x += (p.x + o.x - z.x) * k;
+      z.y += (p.y + o.y - z.y) * k;
     }
     this.updateWanderers(dt);
   }
 
-  /** Stray zombies on side streets. They join the horde when the rider passes close by. */
+  /** Where in the street (sideways, from the route's centre line) a zombie runs. Turns by 90° at a corner. */
+  private streetOffset(z: Zombie, p: { dx: number; dy: number }): Pt {
+    const side = z.side + Math.sin(this.time * 3 + z.phase) * 1.2;
+    return { x: -p.dy * side, y: p.dx * side };
+  }
+
+  /**
+   * A straggler follows the rider along the route, but slower, so it drops back. It sits exactly on its own point
+   * of the route (no lag) with a sideways offset that eases from where it came from (a side street) to its place
+   * in the street, and smoothly round corners. It joins the horde once the horde's slot for it has come up to it
+   * and it has settled into the street: right where it is, so it never jumps into the group.
+   */
+  private updateStraggler(z: Zombie, dt: number, ds: number, front: number): void {
+    z.s! += ds * STRAGGLER_SPEED;
+    const p = this.route.at(z.s!);
+    const o = this.streetOffset(z, p);
+    z.drift ??= { x: z.x - p.x, y: z.y - p.y };
+    const settle = Math.exp(-dt * 2);
+    z.drift.x = o.x + (z.drift.x - o.x) * settle;
+    z.drift.y = o.y + (z.drift.y - o.y) * settle;
+    z.x = p.x + z.drift.x;
+    z.y = p.y + z.drift.y;
+    const settled = Math.hypot(z.drift.x - o.x, z.drift.y - o.y) < 0.3;
+    if (settled && front - z.lag >= z.s!) {
+      z.lag = Math.max(0, front - z.s!);
+      z.s = undefined;
+      z.drift = undefined;
+    }
+  }
+
+  /**
+   * Stray zombies on side streets. When the rider passes one closely it latches on as a straggler (see `Zombie.s`):
+   * it starts chasing from where it stands, level with the rider or behind, and falls back to the horde.
+   */
   private updateWanderers(dt: number): void {
     const me = this.route.at(this.s);
     this.wanderers = this.wanderers.filter((w) => {
       const d = Math.hypot(w.x - me.x, w.y - me.y);
-      if (d < 22) {
-        this.horde.push({ lag: 10 + Math.random() * 40, side: (Math.random() - 0.5) * 10, phase: w.phase, x: w.x, y: w.y });
+      // How far ahead of the rider it is along the route (negative: already passed).
+      const ahead = (w.x - me.x) * me.dx + (w.y - me.y) * me.dy;
+      if (d < 22 && ahead <= 2) {
+        this.horde.push({
+          lag: 10 + Math.random() * 40,
+          s: this.s + Math.min(0, ahead),
+          side: (Math.random() - 0.5) * 10,
+          phase: w.phase,
+          x: w.x,
+          y: w.y,
+        });
         return false;
       }
       return d < 260;

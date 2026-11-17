@@ -1,30 +1,51 @@
-:root {
-  --bg: #f6f7f9; --surface: #fff; --text: #16181d; --muted: #5d6573;
-  --accent: #1f6feb; --ok: #1a7f37; --warn: #9a6700; --off: #8c959f; --border: #d8dde3;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+/* Test bench layout. Colours, fonts and radii come from the gamification theme of @darkblackside/ui (loaded in
+   main.ts; dark via <html data-theme="dark">, remove the attribute to follow the system). */
+main {
+  display: grid;
+  gap: 16px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(safe-area-inset-left, 0px));
 }
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #0f1115; --surface: #181b21; --text: #e6e8eb; --muted: #9aa3ad;
-    --accent: #4c8dff; --ok: #3fb950; --warn: #d29922; --off: #59616b; --border: #2b3038; }
-}
-* { box-sizing: border-box; }
-body { margin: 0 auto; max-width: 960px; padding: 16px; background: var(--bg); color: var(--text); }
-h1 { font-size: 1.4rem; margin: 0 0 4px; }
-h2 { font-size: 1rem; margin: 0 0 10px; color: var(--muted); }
-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 16px 0; }
-.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
-button, input, select { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
-input[type="number"] { width: 6em; }
-input[type="range"] { padding: 0; }
-button { cursor: pointer; }
-button.primary { background: var(--accent); border-color: var(--accent); color: #fff; min-width: 11em; }
-.muted { color: var(--muted); }
-.warn { color: var(--warn); }
-.status::before { content: "●"; margin-right: 6px; color: var(--off); }
-.status[data-s="connected"]::before { color: var(--ok); }
-.status[data-s="connecting"]::before, .status[data-s="reconnecting"]::before { color: var(--warn); }
+bm-page-header > h1 { text-transform: uppercase; letter-spacing: 0.05em; }
+bm-card > h2[slot="heading"] { font-size: 1rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.stack { display: grid; gap: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
+.row[hidden] { display: none; }
+.muted { color: var(--bm-color-text-muted); }
+.num { font-family: var(--bm-font-numeric); font-variant-numeric: tabular-nums; }
+.narrow { width: 9rem; }
+.mode-label { align-self: center; min-width: 3em; font-family: var(--bm-font-heading); color: var(--bm-color-accent); }
+input[type="range"] { accent-color: var(--bm-color-primary); align-self: center; }
+
+/* Connection status: a dot in the state's colour */
+.status { align-self: center; }
+.status::before { content: "●"; margin-right: 6px; color: var(--bm-color-border-strong); }
+.status[data-s="connected"]::before { color: var(--bm-color-success); text-shadow: 0 0 8px var(--bm-color-success); }
+.status[data-s="connecting"]::before, .status[data-s="reconnecting"]::before { color: var(--bm-color-warning); }
+
+/* Live data: HUD readouts */
 .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
-.metrics .label { display: block; color: var(--muted); font-size: .85rem; }
-.metrics b { font-size: 2.2rem; font-variant-numeric: tabular-nums; }
-.badge { font-size: .75rem; padding: 2px 8px; border-radius: 999px; background: var(--off); color: #fff; margin-left: 6px; }
-#log { margin: 0; max-height: 220px; overflow: auto; font-size: .8rem; white-space: pre-wrap; color: var(--muted); }
+.tile {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--bm-color-border);
+  border-radius: var(--bm-radius-card);
+  background: var(--bm-color-surface);
+  box-shadow: var(--bm-shadow-card);
+}
+.tile:first-child { border-color: var(--bm-color-primary); }
+.label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bm-color-text-muted); }
+.tile b { font-size: 2.2rem; line-height: 1; }
+.tile:first-child b { color: var(--bm-color-primary); text-shadow: 0 0 18px color-mix(in srgb, var(--bm-color-primary) 45%, transparent); }
+
+#log {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  font-family: var(--bm-font-numeric);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  color: var(--bm-color-text-muted);
+}

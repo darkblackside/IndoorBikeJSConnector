@@ -3,13 +3,21 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
+          # @darkblackside/ui (demo UI) comes from GitHub Packages (NODE_AUTH_TOKEN at npm ci)
+          registry-url: https://npm.pkg.github.com
+          scope: "@darkblackside"
       - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

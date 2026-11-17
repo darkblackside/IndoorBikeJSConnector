@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   completedSteps,
   defaultRampConfig,
+  gapSurge,
   RampRecorder,
   rampStateAt,
+  restGapForCadence,
   speedFromPower,
   StopDetector,
 } from "../demo/zombie-ramp/ramp.ts";
@@ -47,6 +49,27 @@ describe("ramp FTP test", () => {
     // no cadence sensor: falls back to power
     expect(d.update(10, undefined, 150)).toBe(false);
     expect(d.update(15, undefined, 150, false)).toBe(true); // stale data counts as stopped
+  });
+
+  it("lets the horde rest closer the lower the cadence", () => {
+    expect(restGapForCadence(90)).toBe(50);
+    expect(restGapForCadence(110)).toBe(50);
+    expect(restGapForCadence(40)).toBe(10);
+    expect(restGapForCadence(20)).toBe(10);
+    expect(restGapForCadence(65)).toBe(30); // straight line: halfway between 40 and 90 rpm
+    expect(restGapForCadence(80)).toBeCloseTo(42);
+  });
+
+  it("surges the horde by about ±5 m, smoothly", () => {
+    let max = 0;
+    let maxStep = 0;
+    for (let t = 0; t < 600; t += 0.1) {
+      max = Math.max(max, Math.abs(gapSurge(t)));
+      maxStep = Math.max(maxStep, Math.abs(gapSurge(t + 0.1) - gapSurge(t)));
+    }
+    expect(max).toBeLessThanOrEqual(5);
+    expect(max).toBeGreaterThan(4); // it does reach the full range now and then
+    expect(maxStep).toBeLessThan(0.7); // < 7 m/s: a surge, not a jump
   });
 
   it("turns power into a plausible flat-road speed", () => {

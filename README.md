@@ -87,6 +87,19 @@ bike.disconnect();
 
 Requires Node.js ≥ 22.12.
 
+The demo pages use the private UI library `@darkblackside/ui` (repository `darkblackside/bm-ui-kit`) with its
+`gamification` theme. It comes from GitHub Packages, so `npm install` needs a GitHub token with `read:packages` once
+per machine. The library itself (`src/`, `dist/`) does not depend on it.
+
+```sh
+npm run login:npm               # uses the GitHub CLI (gh) token, otherwise opens the page for a classic token
+npm run login:npm -- --check    # checks the stored token and that the package is reachable
+```
+
+The token is stored in your user `~/.npmrc`, not in this repository (`.npmrc` here only maps the `@darkblackside`
+scope to `npm.pkg.github.com`). CI installs with the workflow's `GITHUB_TOKEN`; that needs read access for this
+repository in the package settings (*Manage Actions access*).
+
 ```sh
 npm install
 npm test             # unit + integration tests (Node, no hardware needed)

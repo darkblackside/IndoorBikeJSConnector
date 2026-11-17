@@ -1,7 +1,10 @@
+/* Colours and fonts come from the gamification theme of @darkblackside/ui (loaded in main.ts; dark via
+   <html data-theme="dark">). The city canvas keeps its own palette (city.ts). */
 :root {
-  --bg: #0d1014; --surface: rgba(20, 25, 32, 0.88); --solid: #161b22; --text: #e8ecef; --muted: #93a0ad;
-  --me: #40e0d0; --zed: #ff3b3b; --border: #2a323c;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --bg: var(--bm-color-bg); --surface: color-mix(in srgb, var(--bm-color-surface) 88%, transparent); --solid: var(--bm-color-surface);
+  --text: var(--bm-color-text); --muted: var(--bm-color-text-muted);
+  --me: var(--bm-color-primary); --zed: var(--bm-color-danger); --border: var(--bm-color-border);
+  font-family: var(--bm-font-body);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); }
@@ -10,35 +13,29 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
   position: relative; margin: 6vh auto; max-width: 640px; width: calc(100% - 32px); max-height: 88vh; overflow: auto;
   background: var(--surface); backdrop-filter: blur(6px); border: 1px solid var(--border); border-radius: 16px; padding: 24px;
 }
-h1 { margin: 0 0 8px; font-size: 1.6rem; }
+h1 { margin: 0 0 8px; font-family: var(--bm-font-heading); font-size: 1.6rem; letter-spacing: 0.04em; text-transform: uppercase; }
 .me { color: var(--me); text-shadow: 0 0 10px var(--me); }
 .zed { color: var(--zed); font-size: 0.8em; letter-spacing: 2px; }
 .muted { color: var(--muted); }
 .small { font-size: 0.85rem; }
 .warn { color: #e3b341; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 16px 0; }
-.grid label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 0.85rem; }
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
-button, input, select {
-  font: inherit; color: var(--text); background: var(--solid); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
-}
-input[type="number"] { width: 6em; }
-input[type="range"] { padding: 0; vertical-align: middle; }
-button { cursor: pointer; }
-button:disabled { opacity: 0.45; cursor: not-allowed; }
-button.primary { background: var(--me); border-color: var(--me); color: #04201d; font-weight: 700; width: 100%; padding: 12px; margin-top: 12px; font-size: 1.1rem; }
-button.ghost { background: var(--surface); }
+/* The only native controls left: the simulated rider's range sliders. */
+input[type="range"] { accent-color: var(--me); vertical-align: middle; }
+#setup > bm-check, #setup > bm-notice, #setup > bm-fieldset { display: block; margin: 12px 0; }
+#start, #again { margin-top: 16px; }
 .status::before { content: "●"; margin-right: 6px; color: #59616b; }
 .status[data-s="connected"]::before { color: var(--me); }
 .status[data-s="connecting"]::before, .status[data-s="reconnecting"]::before { color: #e3b341; }
 
 #hud { position: fixed; inset: 0; pointer-events: none; }
-#hud button, #hud input { pointer-events: auto; }
+#hud bm-button, #hud input { pointer-events: auto; }
 .hud-top { display: flex; gap: 12px; padding: 12px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; }
 .label { display: block; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
-.big { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.huge { font-size: 4rem; line-height: 1; font-variant-numeric: tabular-nums; color: var(--me); }
+.big { font-family: var(--bm-font-numeric); font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.huge { font-family: var(--bm-font-numeric); font-size: 4rem; line-height: 1; font-variant-numeric: tabular-nums; color: var(--me); }
 .unit { font-size: 1.2rem; margin-left: 4px; color: var(--muted); }
 .phase { min-width: 180px; }
 .watts { text-align: center; min-width: 200px; }
@@ -47,15 +44,12 @@ button.ghost { background: var(--surface); }
 .stats b { font-size: 1.3rem; }
 .bar { height: 6px; background: #2a323c; border-radius: 3px; margin: 6px 0; overflow: hidden; }
 #phase-bar { height: 100%; width: 0; background: var(--me); }
-.check { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 10px; cursor: pointer; }
-.check input { margin-top: 4px; }
 .hint { font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
 .hint.low { color: var(--zed); }
 .hint.ok { color: var(--me); }
 .hint.high { color: var(--muted); }
 .huge.low { color: var(--zed); }
 .sim > div { margin: 4px 0; }
-.badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 999px; background: #2a323c; color: var(--muted); }
 .banner {
   position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap;
   font-size: 2rem; font-weight: 800; color: var(--zed); text-shadow: 0 0 18px rgba(255, 59, 59, 0.7); opacity: 0; transition: opacity 0.4s;
@@ -69,7 +63,7 @@ button.ghost { background: var(--surface); }
 .hud-bottom { position: absolute; bottom: 12px; right: 12px; display: flex; gap: 8px; }
 .sim { position: absolute; bottom: 12px; left: 12px; pointer-events: auto; }
 
-.ftp { font-size: 5rem; font-weight: 800; color: var(--me); line-height: 1.1; text-shadow: 0 0 24px rgba(64, 224, 208, 0.5); }
+.ftp { font-family: var(--bm-font-numeric); font-size: 5rem; font-weight: 800; color: var(--me); line-height: 1.1; text-shadow: 0 0 24px rgba(64, 224, 208, 0.5); }
 #chart { width: 100%; margin: 16px 0 8px; }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .facts b { font-size: 1.2rem; font-variant-numeric: tabular-nums; }

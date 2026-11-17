@@ -1,10 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
     <title>Zombie Ramp – FTP test</title>
+    <!-- Fonts of the gamification theme (@darkblackside/ui); system fonts are the fallback -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@600;800&display=swap" />
   </head>
   <body>
     <canvas id="city"></canvas>
@@ -20,45 +24,44 @@
       </p>
 
       <div class="grid">
-        <label>Warm-up
+        <bm-field label="Warm-up" size="sm">
           <select id="cfg-warmup">
             <option value="0">none</option>
             <option value="180">3 min</option>
             <option value="300" selected>5 min</option>
             <option value="600">10 min</option>
           </select>
-        </label>
-        <label>Warm-up power <span><input id="cfg-warmup-w" type="number" min="0" max="500" step="5" value="100" /> W</span></label>
-        <label>Ramp start <span><input id="cfg-start" type="number" min="0" max="500" step="5" value="100" /> W</span></label>
-        <label>Step every minute
+        </bm-field>
+        <bm-field label="Warm-up power" size="sm"><input id="cfg-warmup-w" type="number" min="0" max="500" step="5" value="100" /><span slot="end">W</span></bm-field>
+        <bm-field label="Ramp start" size="sm"><input id="cfg-start" type="number" min="0" max="500" step="5" value="100" /><span slot="end">W</span></bm-field>
+        <bm-field label="Step every minute" size="sm">
           <select id="cfg-step">
             <option value="20">+20 W</option>
             <option value="25" selected>+25 W</option>
           </select>
-        </label>
-        <label>Your weight (optional) <span><input id="cfg-weight" type="number" min="30" max="200" step="0.5" placeholder="kg" /> kg</span></label>
+        </bm-field>
+        <bm-field label="Your weight" optional size="sm"><input id="cfg-weight" type="number" min="30" max="200" step="0.5" /><span slot="end">kg</span></bm-field>
       </div>
-      <label class="check">
-        <input id="cfg-erg" type="checkbox" checked />
-        <span>Use ERG mode <span class="muted small">– the trainer sets the target wattage. Off: power is only read from the device.</span></span>
-      </label>
-      <p id="erg-note" class="warn small" hidden></p>
+      <bm-check description="The trainer sets the target wattage. Off: power is only read from the device.">
+        <input id="cfg-erg" type="checkbox" checked /> Use ERG mode
+      </bm-check>
+      <bm-notice id="erg-note" tone="warning" hidden></bm-notice>
 
+      <bm-fieldset legend="Trainer" appearance="bare" orientation="horizontal">
+        <bm-check><input type="radio" name="source" value="real" checked /> Bluetooth trainer</bm-check>
+        <bm-check><input type="radio" name="source" value="sim" /> Simulated smart trainer</bm-check>
+        <bm-check><input type="radio" name="source" value="sim-pm" /> Simulated power meter (no ERG)</bm-check>
+      </bm-fieldset>
       <div class="row">
-        <label><input type="radio" name="source" value="real" checked /> Bluetooth trainer</label>
-        <label><input type="radio" name="source" value="sim" /> Simulated smart trainer</label>
-        <label><input type="radio" name="source" value="sim-pm" /> Simulated power meter (no ERG)</label>
-      </div>
-      <div class="row">
-        <button id="connect-trainer">Connect trainer</button>
+        <bm-button id="connect-trainer">Connect trainer</bm-button>
         <span id="trainer-status" class="status">disconnected</span>
       </div>
       <div class="row">
-        <button id="connect-hrm">Connect heart rate (optional)</button>
+        <bm-button id="connect-hrm">Connect heart rate (optional)</bm-button>
         <span id="hrm-status" class="status">disconnected</span>
       </div>
-      <p id="bt-warning" class="warn" hidden></p>
-      <button id="start" class="primary" disabled>Start</button>
+      <bm-notice id="bt-warning" tone="warning" hidden></bm-notice>
+      <bm-button id="start" variant="primary" full-width disabled>Start</bm-button>
     </section>
 
     <!-- In-game HUD -->
@@ -73,7 +76,7 @@
         <div class="card watts">
           <div class="label">Power</div>
           <div><b id="power" class="huge">–</b><span class="unit">W</span></div>
-          <div class="muted">target <b id="target">–</b> W <span id="erg-badge" class="badge">ERG</span></div>
+          <div class="muted">target <b id="target">–</b> W <bm-tag id="erg-badge" tone="info" appearance="outline">ERG</bm-tag></div>
           <div id="hint" class="hint" hidden></div>
         </div>
         <div class="card stats">
@@ -86,14 +89,14 @@
       <div id="banner" class="banner"></div>
       <div id="prompt" class="prompt">Start pedalling to begin</div>
       <div class="hud-bottom">
-        <button id="mute" class="ghost">🔊</button>
-        <button id="quit" class="ghost">End test</button>
+        <bm-button id="mute" size="sm">🔊</bm-button>
+        <bm-button id="quit" size="sm" variant="danger">End test</bm-button>
       </div>
       <div id="sim-panel" class="card sim" hidden>
         <div class="label">Simulated rider</div>
         <div>cadence <input id="sim-cadence" type="range" min="0" max="120" value="90" /> <span id="sim-cadence-v">90</span> rpm</div>
         <div id="sim-power-row">power <input id="sim-power" type="range" min="0" max="600" step="5" value="150" /> <span id="sim-power-v">150</span> W</div>
-        <button id="sim-stop">Stop pedalling</button>
+        <bm-button id="sim-stop" size="sm">Stop pedalling</bm-button>
       </div>
     </div>
 
@@ -113,7 +116,7 @@
         <div><span class="label">Max heart rate</span><b id="r-hr">–</b></div>
         <div><span class="label">Duration</span><b id="r-time">–</b></div>
       </div>
-      <button id="again" class="primary">Ride again</button>
+      <bm-button id="again" variant="primary" full-width>Ride again</bm-button>
     </section>
 
     <script type="module" src="./main.ts"></script>
