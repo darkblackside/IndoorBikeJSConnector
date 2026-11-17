@@ -51,11 +51,20 @@ bike.setTargetPower(220);
 bike.setSimulation({ grade: track.gradeAt(player.x), windSpeed: 2 });
 
 bike.freeRide();   // flat road, rider controls effort
+
+// Read-only: stop controlling the trainer and just read its data.
+// Lifts an active ERG target first; nothing is re-applied on reconnect.
+bike.releaseControl();
+
+// Pick a mode per device: ERG where supported (and wanted), otherwise read the power.
+if (useErg && bike.trainer.capabilities.erg) bike.setTargetPower(target);
+else bike.releaseControl();
+
 bike.disconnect();
 ```
 
 - `bike.data` always holds the latest merged snapshot, so you can poll it in a game loop instead of using events.
-- `bike.trainer.protocolName`, `.capabilities` (`{ erg, simulation }`), `.powerRange` and `.mode` describe the connected trainer.
+- `bike.trainer.protocolName`, `.capabilities` (`{ erg, simulation }`), `.powerRange`, `.mode` and `.ergActive` describe the connected trainer.
 - Links that drop unexpectedly are reconnected automatically (`autoReconnect`, `reconnectDelays`), and the last ERG/SIM mode is re-applied.
 - `connectTrainer({ device })` takes an already-known `BluetoothDevice` (e.g. from `navigator.bluetooth.getDevices()`) to reconnect without the chooser.
 - `Trainer` and `HeartRateMonitor` can be used on their own. The `IndoorBike` facade just combines them.
@@ -97,12 +106,14 @@ you are the turquoise dot riding through a top-down city grid, turning at the st
 horde of red zombie dots behind you.
 
 - Optional warm-up (3/5/10 min at a set wattage), then the target rises by 25 W (or 20 W) every minute.
-  The trainer holds the target in ERG mode; trainers without ERG show the target to match.
+- **Use ERG mode** (on by default): if the device supports it, the trainer holds each target. Turn it off, or use a
+  device without ERG (e.g. a power meter), and the power is only read from the device: the HUD shows how far you
+  are from the target and you match it with gears and cadence.
 - The zombies run at the target wattage, you run at your measured power (3 s average). Hold the target and
   they stay behind (and creep a bit closer each step); fall short and they close in. If they catch you, the test ends.
 - Stop pedalling (cadence below 20 rpm, or no data, for 4 s) and the test ends with the result screen:
   FTP = target of the last fully completed minute × 0.75, plus W/kg, best 1-min power and a power chart.
-- Works with the simulated trainer too (cadence slider and a "Stop pedalling" button).
+- Works with a simulated smart trainer or power meter too (cadence and power sliders, "Stop pedalling" button).
 
 > Real-hardware status: the parsers are checked against the published specs (FTMS, Cycling Power,
 > ANT+ FE-C) and the Wahoo encoding follows the open-source implementations (GoldenCheetah and others).

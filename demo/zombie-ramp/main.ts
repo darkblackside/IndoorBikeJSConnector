@@ -1,5 +1,5 @@
 import "./style.css";
-import { IndoorBike } from "../../src/index.ts";
+import { IndoorBike, type ProtocolName } from "../../src/index.ts";
 import {
   createSimulatedHeartRateMonitor,
   createSimulatedTrainer,
@@ -37,7 +37,11 @@ const restGap = (step: number) => Math.max(18, START_GAP - 2.5 * Math.max(0, ste
 const fake = new FakeBluetooth();
 let simTrainer: SimulatedTrainer | undefined;
 const simHrm = fake.add(createSimulatedHeartRateMonitor());
-const useSim = () => $<HTMLInputElement>('input[name="source"][value="sim"]').checked;
+const source = () => $<HTMLInputElement>('input[name="source"]:checked').value;
+const useSim = () => source() !== "real";
+const simProtocol = (): ProtocolName => (source() === "sim-pm" ? "cycling-power" : "ftms");
+/** ERG wanted by the rider (checkbox) and possible with the connected device. */
+const ergAvailable = () => $<HTMLInputElement>("#cfg-erg").checked && bike.trainer.capabilities.erg;
 
 if (!("bluetooth" in navigator)) {
   $<HTMLInputElement>('input[name="source"][value="sim"]').checked = true;
@@ -65,14 +69,20 @@ function createBike(): IndoorBike {
     const name = (t ? b.trainer : b.heartRateMonitor).deviceName;
     el.dataset.s = status;
     el.textContent = status + (name && status !== "disconnected" ? ` – ${name}` : "");
-    if (t && status === "connected" && !b.trainer.capabilities.erg) {
-      el.textContent += " (no ERG: you'll have to match the target yourself)";
-    }
+    if (t) updateErgNote(b);
     $(t ? "#connect-trainer" : "#connect-hrm").textContent =
       status === "disconnected" ? (t ? "Connect trainer" : "Connect heart rate (optional)") : "Disconnect";
     $<HTMLButtonElement>("#start").disabled = b.trainer.status !== "connected";
   });
   return b;
+}
+
+function updateErgNote(b: IndoorBike) {
+  const note = $("#erg-note");
+  const connected = b.trainer.status === "connected";
+  note.hidden = !connected || b.trainer.capabilities.erg;
+  note.textContent = "This device can't set a target wattage, so its power is only read: match the target with gears and cadence.";
+  $<HTMLInputElement>("#cfg-erg").disabled = connected && !b.trainer.capabilities.erg;
 }
 
 for (const r of document.querySelectorAll<HTMLInputElement>('input[name="source"]')) {
@@ -86,9 +96,15 @@ async function toggle(kind: "trainer" | "hrm") {
   const sensor = kind === "trainer" ? bike.trainer : bike.heartRateMonitor;
   if (sensor.status !== "disconnected") return sensor.disconnect();
   if (useSim()) {
-    if (kind === "trainer" && !simTrainer) {
-      simTrainer = fake.add(createSimulatedTrainer("ftms", "Simulated KICKR"));
+    if (kind === "trainer" && simTrainer?.protocol !== simProtocol()) {
+      if (simTrainer) {
+        simTrainer.stop();
+        fake.devices.splice(fake.devices.indexOf(simTrainer.device), 1);
+      }
+      const pm = simProtocol() === "cycling-power";
+      simTrainer = fake.add(createSimulatedTrainer(simProtocol(), pm ? "Simulated power meter" : "Simulated KICKR"));
       simTrainer.state.cadence = 0;
+      simTrainer.state.riderPower = Number($<HTMLInputElement>("#sim-power").value);
       simTrainer.start(250);
     }
     if (kind === "hrm") simHrm.start(1000);
@@ -111,6 +127,13 @@ const setSimCadence = (v: number) => {
 };
 $<HTMLInputElement>("#sim-cadence").addEventListener("input", (e) => setSimCadence(Number((e.target as HTMLInputElement).value)));
 $("#sim-stop").addEventListener("click", () => setSimCadence(0));
+// Rider's own power, used when the trainer is not holding an ERG target.
+const setSimPower = (v: number) => {
+  $<HTMLInputElement>("#sim-power").value = String(v);
+  $("#sim-power-v").textContent = String(v);
+  if (simTrainer) simTrainer.state.riderPower = v;
+};
+$<HTMLInputElement>("#sim-power").addEventListener("input", (e) => setSimPower(Number((e.target as HTMLInputElement).value)));
 
 // --- sound -------------------------------------------------------------------------------
 let audio: AudioContext | undefined;
@@ -136,6 +159,8 @@ $("#mute").addEventListener("click", () => {
 type Mode = "setup" | "waiting" | "riding" | "done";
 let mode: Mode = "setup";
 let cfg: RampConfig = defaultRampConfig;
+/** Whether this run lets the trainer hold the target (ERG) or only reads the power. */
+let ergMode = false;
 let scene = new CityScene();
 let recorder = new RampRecorder(cfg);
 const stop = new StopDetector();
@@ -180,12 +205,20 @@ $("#start").addEventListener("click", () => {
   $("#hud").hidden = false;
   $("#prompt").hidden = false;
   $("#sim-panel").hidden = !useSim();
-  $("#erg-badge").textContent = bike.trainer.capabilities.erg ? "ERG" : "match it";
-  // Hold the first target already, so the trainer is ready when the rider starts.
+  ergMode = ergAvailable();
+  $("#erg-badge").textContent = ergMode ? "ERG" : "match it";
+  $("#hint").hidden = ergMode;
+  $("#sim-power-row").hidden = ergMode;
   const first = rampStateAt(cfg, 0).target;
-  if (bike.trainer.capabilities.erg) bike.setTargetPower(first);
+  // ERG: hold the first target already, so the trainer is ready when the rider starts.
+  // Otherwise make sure no earlier target is left on the trainer and just read the power.
+  if (ergMode) bike.setTargetPower(first);
+  else bike.releaseControl();
   $("#target").textContent = String(first);
-  if (useSim()) setSimCadence(90);
+  if (useSim()) {
+    setSimCadence(90);
+    setSimPower(first);
+  }
 });
 
 $("#quit").addEventListener("click", () => {
@@ -200,13 +233,14 @@ function backToSetup() {
   $("#result").hidden = true;
   $("#hud").hidden = true;
   $("#setup").hidden = false;
-  if (bike.trainer.status === "connected") bike.freeRide();
+  if (bike.trainer.status === "connected") bike.releaseControl();
   if (useSim()) setSimCadence(0);
 }
 
 function finish(reason: string) {
   mode = "done";
-  if (bike.trainer.status === "connected") bike.freeRide(); // easy spin for the cool-down
+  // ERG: drop to an easy flat-road spin for the cool-down. Read-only: leave the trainer alone.
+  if (ergMode && bike.trainer.status === "connected") bike.freeRide();
   if (useSim()) setSimCadence(0);
   beep(220, 0.5, 0.2);
   showResult(recorder.result(elapsed), reason);
@@ -240,7 +274,7 @@ function frame() {
     elapsed = now - t0;
     const st = rampStateAt(cfg, elapsed);
     if (st.step !== currentStep) {
-      if (bike.trainer.capabilities.erg) bike.setTargetPower(st.target);
+      if (ergMode) bike.setTargetPower(st.target);
       if (st.phase === "warmup") banner(`Warm-up · ${st.target} W`);
       else {
         banner(st.step === 0 ? `Ramp! ${st.target} W` : `${st.target} W · they're getting faster`);
@@ -291,6 +325,16 @@ function renderHud(label: string, st: ReturnType<typeof rampStateAt>, p3: number
   $("#phase-next").textContent = `next: ${st.nextTarget} W · total ${mmss(elapsed)}`;
   $("#power").textContent = p3 === undefined ? "–" : String(Math.round(p3));
   $("#target").textContent = String(st.target);
+  // Without ERG the rider has to hit the target: show how far off they are.
+  const low = p3 !== undefined && p3 < st.target * 0.95;
+  $("#power").classList.toggle("low", !ergMode && low);
+  if (!ergMode) {
+    const hint = $("#hint");
+    const diff = p3 === undefined ? undefined : Math.round(st.target - p3);
+    hint.className = `hint ${diff === undefined ? "" : diff > 5 ? "low" : diff < -5 ? "high" : "ok"}`;
+    hint.textContent =
+      diff === undefined ? "" : diff > 5 ? `▲ ${diff} W more` : diff < -5 ? `▼ ${-diff} W above target` : "on target";
+  }
   $("#cadence").textContent = d.cadence === undefined ? "–" : String(Math.round(d.cadence));
   $("#hr").textContent = d.heartRate === undefined ? "–" : String(d.heartRate);
   $("#gap").textContent = String(Math.max(0, Math.round(gap)));

@@ -17,6 +17,11 @@ export interface SimulatedTrainerState {
   mode: SimulatedMode;
   /** Rider's cadence; change it to simulate pedalling harder/slower. */
   cadence: number;
+  /**
+   * Rider's power output while no ERG target is held (e.g. read-only use or power meters).
+   * Default: derived from speed and grade.
+   */
+  riderPower?: number;
   power: number;
   speed: number;
   distance: number;
@@ -83,7 +88,7 @@ export function createSimulatedTrainer(protocol: ProtocolName, name = defaultNam
         ? 0
         : m.kind === "erg"
           ? m.watts
-          : simulatedPower(state.speed, m.kind === "simulation" ? m.grade : 0);
+          : (state.riderPower ?? simulatedPower(state.speed, m.kind === "simulation" ? m.grade : 0));
     state.distance += (state.speed / 3.6) * dt;
     wheelRevs = state.distance / 2.096;
     crankRevs += (state.cadence / 60) * dt;
