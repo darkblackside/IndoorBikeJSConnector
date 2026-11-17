@@ -5,6 +5,7 @@ Game rules and simulation shared by the web client (`apps/web`) and the multipla
 | Entry | What |
 | --- | --- |
 | `@indoor-bike/game-core/zombie-ramp` | Ramp test (`rampStateAt`, `RampRecorder`, `StopDetector`, `speedFromPower`, …), the city simulation (`CityWorld`, `Route`, `mulberry32`) and the ride export (`buildActivity`, `encodeFit`, `encodeTcx`) |
+| `@indoor-bike/game-core/ftp20` | 20-minute FTP test: block plan with coaching texts (`planBlocks`, `blockAt`, `ergTargetAt`), max HR and HR guide (`maxHeartRate`, `heartRateGuide`), the session clock with skip/pause/stop decisions (`Ftp20Session`), the pacing coach (`PacingCoach`), recording and result (`Ftp20Recorder`, `ftp20Result`, `pacingSummary`, `resultNote`). `buildActivity` also takes a list of lap start times for its laps |
 | `@indoor-bike/game-core/net` | Multiplayer protocol for the Colyseus server and client: room state (`RideState`, `RiderState`, Colyseus schema), `RIDE_ROOM`, `JoinOptions`, `ClientMessages`, `PROTOCOL_VERSION` and validators (`checkJoinOptions`, `checkSample`) |
 
 Rules for code in here:

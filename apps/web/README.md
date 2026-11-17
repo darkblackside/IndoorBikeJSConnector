@@ -6,6 +6,7 @@ The browser frontend (Vite + TypeScript). `npm run dev` from the root, then:
 | --- | --- | --- |
 | `/` | Game hub: **Offline** tab (single-player games) and **Online** tab (multiplayer, empty for now). `#offline`/`#online` select the tab | `src/home/` |
 | `/zombie-ramp/` | [Zombie Ramp](ZOMBIE_RAMP.md), ramp FTP test game (Offline) | `src/zombie-ramp/` |
+| `/ftp20/` | [20-min FTP test](FTP20.md), coached 20-minute FTP test as a three.js runner (Offline) | `src/ftp20/` |
 | `/debug/` | Debug bench for the connector (devices, ERG/SIM, spin-down, simulators). Hidden: built, but not linked from the app | `src/debug/` |
 | `/sandbox/` | three.js sandbox: a game-core `CityWorld` rendered with the engine in 2D. Dev only, not in the build | `src/sandbox/` |
 

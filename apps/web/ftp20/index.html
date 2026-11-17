@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>20-min FTP test</title>
+    <!-- Fonts of the gamification theme (@darkblackside/ui); system fonts are the fallback -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@600;800&display=swap" />
+  </head>
+  <body>
+    <canvas id="world"></canvas>
+
+    <!-- Setup -->
+    <section id="setup" class="panel">
+      <a class="back" href="../#offline">← All games</a>
+      <h1><span class="me">●</span> 20-min FTP test</h1>
+      <p class="muted">
+        The classic FTP test, with a coach riding along. Your power moves you down the road; the scenery changes every
+        few minutes. About 50 minutes in total.
+      </p>
+      <ol class="how">
+        <li><b>Warm-up, 20 min (ERG).</b> Easy spinning, a moderate block, quick-leg spin-ups and a 2-minute
+          <b>opener</b> at your hard wattage that lifts your heart rate briefly towards ~90 % of max. Then recover.</li>
+        <li><b>The test, 20 min (no ERG).</b> All-out, but <b>even</b>: as hard as you can hold for the full 20 minutes.
+          You set the power with gears and cadence. Don't start too hot; empty the tank in the last 2–3 minutes.</li>
+        <li><b>Cool-down, 10 min (ERG).</b> Spin easy and let your heart rate come down.</li>
+      </ol>
+      <p class="muted small">
+        <b>FTP = average power of the 20 minutes × 0.95.</b> During the test you won't see your average or an FTP
+        estimate: pace by feel. The coach tells you whether you're above or below <i>your own</i> average, and gives
+        cadence, feeling and a heart-rate guide for every block. Warm-up and cool-down can be skipped.
+      </p>
+
+      <div class="grid">
+        <bm-field label="Easy wattage" size="sm"><input id="cfg-easy" type="number" min="40" max="400" step="5" value="120" /><span slot="end">W</span></bm-field>
+        <bm-field label="Hard wattage (opener)" size="sm"><input id="cfg-hard" type="number" min="60" max="800" step="5" value="250" /><span slot="end">W</span></bm-field>
+        <bm-field label="Your age" optional size="sm"><input id="cfg-age" type="number" min="10" max="100" step="1" /><span slot="end">yrs</span></bm-field>
+        <bm-field label="Max heart rate" optional size="sm"><input id="cfg-maxhr" type="number" min="100" max="240" step="1" /><span slot="end">bpm</span></bm-field>
+        <bm-field label="Your weight" optional size="sm"><input id="cfg-weight" type="number" min="30" max="200" step="0.5" /><span slot="end">kg</span></bm-field>
+      </div>
+      <p class="muted small">
+        <b>Easy</b>: you could chat (about half your FTP). <b>Hard</b>: the 2-minute opener, around your FTP or your
+        best guess of it. The moderate warm-up level is the midpoint. Age or max heart rate (it overrides the age) give
+        a heart-rate guide: max HR ≈ 208 − 0.7 × age.
+      </p>
+      <details class="plan">
+        <summary>The plan, block by block</summary>
+        <table id="plan-table"></table>
+        <p class="muted small">Heart rate is only a guide: the feeling matters more. Without age or max HR the coach shows feeling and cadence only.</p>
+      </details>
+      <bm-check id="cfg-erg-row" description="Warm-up and cool-down: the trainer sets the wattage. Off: you match it with gears and cadence. The test itself never uses ERG.">
+        <input id="cfg-erg" type="checkbox" checked /> Use ERG for warm-up and cool-down
+      </bm-check>
+      <bm-notice id="erg-note" tone="warning" hidden></bm-notice>
+
+      <bm-fieldset legend="Trainer" appearance="bare" orientation="horizontal">
+        <bm-check><input type="radio" name="source" value="real" checked /> Bluetooth trainer</bm-check>
+        <bm-check><input type="radio" name="source" value="sim" /> Simulated smart trainer</bm-check>
+        <bm-check><input type="radio" name="source" value="sim-pm" /> Simulated power meter (no ERG)</bm-check>
+      </bm-fieldset>
+      <div class="row">
+        <bm-button id="connect-trainer">Connect trainer</bm-button>
+        <span id="trainer-status" class="status">disconnected</span>
+      </div>
+      <div class="row" id="spindown-row" hidden>
+        <bm-button id="spindown" size="sm" title="Calibrate the trainer's power reading: speed up, then coast">Calibrate (spin-down)</bm-button>
+        <span id="spindown-status" class="muted small">Recommended after a 10-minute warm-up, for accurate power.</span>
+      </div>
+      <div class="row">
+        <bm-button id="connect-hrm">Connect heart rate (optional)</bm-button>
+        <span id="hrm-status" class="status">disconnected</span>
+      </div>
+      <bm-notice id="bt-warning" tone="warning" hidden></bm-notice>
+      <bm-button id="start" variant="primary" full-width disabled>Start</bm-button>
+    </section>
+
+    <!-- In-game HUD -->
+    <div id="hud" hidden>
+      <div class="hud-top">
+        <div class="card phase">
+          <div id="phase-label" class="label">Warm-up</div>
+          <div id="block-title" class="block-title">Easy spin</div>
+          <div id="block-time" class="big">5:00</div>
+          <div class="bar"><div id="block-bar"></div></div>
+          <div id="phase-left" class="muted small"></div>
+          <bm-button id="skip" size="sm">Skip warm-up</bm-button>
+        </div>
+        <div class="card watts">
+          <div class="label">Power</div>
+          <div><b id="power" class="huge">–</b><span class="unit">W</span></div>
+          <div id="erg-row" class="muted">target <b id="target">–</b> W <bm-tag id="erg-badge" tone="info" appearance="outline">ERG</bm-tag></div>
+          <div id="match-hint" class="hint" hidden></div>
+          <div id="pace" class="pace" hidden>
+            <div class="gauge" aria-hidden="true">
+              <div class="gauge-band"></div>
+              <div class="gauge-mid"></div>
+              <div id="gauge-marker" class="gauge-marker"></div>
+            </div>
+            <div class="gauge-scale muted small"><span>below</span><span>your average</span><span>above</span></div>
+            <div id="pace-text" class="pace-text"></div>
+          </div>
+        </div>
+        <div class="card stats">
+          <div><span class="label">Cadence</span><b id="cadence">–</b> <span class="muted small">rpm</span></div>
+          <div><span class="label">Heart rate</span><b id="hr">–</b> <span class="muted small">bpm</span></div>
+          <div><span class="label">Distance</span><b id="distance">–</b> <span class="muted small">km</span></div>
+          <div><span class="label">Scenery</span><b id="scenery" class="scenery">–</b></div>
+        </div>
+      </div>
+      <div id="banner" class="banner"></div>
+      <div id="countdown" class="countdown" hidden></div>
+      <div id="prompt" class="prompt" hidden>
+        <span id="prompt-text">Start pedalling to begin</span>
+        <div id="prompt-sub" class="sub"></div>
+      </div>
+      <div id="coach" class="card coach">
+        <div class="coach-head"><span class="label">Coach</span> <b id="coach-title"></b></div>
+        <div class="coach-grid">
+          <div><span class="label">Cadence</span><b id="coach-rpm"></b></div>
+          <div><span class="label">Feels</span><span id="coach-feel"></span> <span id="coach-rpe" class="rpe"></span></div>
+          <div id="coach-hr-row"><span class="label">Heart rate guide</span><span id="coach-hr"></span></div>
+        </div>
+        <div id="coach-tip" class="muted small tip"></div>
+        <div id="coach-next" class="muted small"></div>
+      </div>
+      <div class="hud-bottom">
+        <bm-button id="mute" size="sm">🔊</bm-button>
+        <bm-button id="quit" size="sm" variant="danger">End</bm-button>
+      </div>
+      <details id="sim-panel" class="card sim" hidden open>
+        <summary class="label">Simulated rider</summary>
+        <div>cadence <input id="sim-cadence" type="range" min="0" max="120" value="90" /> <span id="sim-cadence-v">90</span> rpm</div>
+        <div id="sim-power-row">power <input id="sim-power" type="range" min="0" max="600" step="5" value="150" /> <span id="sim-power-v">150</span> W</div>
+        <div>time <input id="sim-speed" type="range" min="1" max="60" value="1" /> <span id="sim-speed-v">1</span>× speed</div>
+        <bm-button id="sim-stop" size="sm">Stop pedalling</bm-button>
+      </details>
+    </div>
+
+    <!-- Questions during the ride (stop during the test, skip, end) -->
+    <div id="dialog" class="dialog-backdrop" hidden>
+      <div class="card dialog" role="alertdialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-text">
+        <h2 id="dialog-title"></h2>
+        <p id="dialog-text"></p>
+        <div id="dialog-buttons" class="row"></div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <section id="result" class="panel" hidden>
+      <div id="result-reason" class="muted"></div>
+      <h1>Your FTP</h1>
+      <div class="ftp"><b id="ftp">–</b><span class="unit">W</span><bm-tag id="unreliable" tone="warning" hidden>unreliable</bm-tag></div>
+      <div id="wkg" class="muted"></div>
+      <div id="ftp-note" class="muted small"></div>
+      <div id="pacing-note" class="small pacing-note"></div>
+      <div class="tabs" role="tablist" aria-label="Chart">
+        <button role="tab" data-metric="power" aria-selected="true">Power</button>
+        <button role="tab" data-metric="cadence" aria-selected="false">Cadence</button>
+        <button role="tab" data-metric="heartRate" aria-selected="false">Heart rate</button>
+        <button role="tab" data-metric="distance" aria-selected="false">Distance</button>
+      </div>
+      <canvas id="chart" height="180" role="tabpanel" aria-label="Power chart"></canvas>
+      <div id="chart-empty" class="muted small" hidden></div>
+      <div class="facts">
+        <div><span id="r-avg-label" class="label">20-min avg power</span><b id="r-avg">–</b></div>
+        <div><span class="label">Test ridden</span><b id="r-test">–</b></div>
+        <div><span class="label">5-min blocks</span><b id="r-blocks">–</b></div>
+        <div><span class="label">2nd half vs 1st</span><b id="r-split">–</b></div>
+        <div><span class="label">Steadiness (30 s CV)</span><b id="r-cv">–</b></div>
+        <div><span class="label">Max power</span><b id="r-max">–</b></div>
+        <div><span class="label">Avg cadence (test)</span><b id="r-cad">–</b></div>
+        <div><span class="label">Avg heart rate (test)</span><b id="r-hr">–</b></div>
+        <div><span class="label">Max heart rate</span><b id="r-maxhr">–</b></div>
+        <div><span class="label">Total time</span><b id="r-time">–</b></div>
+        <div><span class="label">Distance</span><b id="r-distance">–</b></div>
+        <div><span class="label">Work</span><b id="r-work">–</b></div>
+      </div>
+      <div class="export">
+        <h2>Save your ride</h2>
+        <p class="muted small">
+          For Strava, Garmin Connect, TrainingPeaks, intervals.icu and co: power, cadence, heart rate and one lap per
+          block, as an indoor ride. On Strava: <i>Upload activity</i> → <i>File</i>.
+        </p>
+        <div class="row">
+          <bm-button id="dl-fit" variant="primary">Download .fit</bm-button>
+          <bm-button id="dl-tcx">Download .tcx</bm-button>
+        </div>
+        <p class="muted small">No GPX: GPX needs GPS coordinates, which an indoor ride doesn't have. Use .fit (best) or .tcx.</p>
+      </div>
+      <bm-button id="again" variant="primary" full-width>Ride again</bm-button>
+    </section>
+
+    <script type="module" src="../src/ftp20/main.ts"></script>
+  </body>
+</html>

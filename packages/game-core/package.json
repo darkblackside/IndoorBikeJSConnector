@@ -20,6 +20,11 @@
       "types": "./dist/zombie-ramp/index.d.ts",
       "import": "./dist/zombie-ramp/index.js"
     },
+    "./ftp20": {
+      "indoor-bike-source": "./src/ftp20/index.ts",
+      "types": "./dist/ftp20/index.d.ts",
+      "import": "./dist/ftp20/index.js"
+    },
     "./net": {
       "indoor-bike-source": "./src/net/index.ts",
       "types": "./dist/net/index.d.ts",

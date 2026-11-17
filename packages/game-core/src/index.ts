@@ -4,4 +4,5 @@
  * the state, the server will run the same code authoritatively.
  */
 export * from "./zombie-ramp/index.ts";
+export * from "./ftp20/index.ts";
 export * from "./net/index.ts";

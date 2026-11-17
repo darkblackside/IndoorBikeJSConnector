@@ -1,8 +1,9 @@
 /**
- * Turns a recorded ramp test into an activity file for Strava, Garmin Connect, TrainingPeaks, intervals.icu…
+ * Turns a recorded ride (the ramp test, the 20-minute FTP test, …) into an activity file for Strava, Garmin Connect,
+ * TrainingPeaks, intervals.icu…
  *
- * - FIT (binary, Garmin's format): the best supported one. Indoor cycling, one lap per warm-up/ramp step,
- *   power, cadence, heart rate, speed and distance per second.
+ * - FIT (binary, Garmin's format): the best supported one. Indoor cycling, one lap per warm-up/ramp step (or per
+ *   block, for other games), power, cadence, heart rate, speed and distance per second.
  * - TCX (XML): the same data for tools that don't read FIT.
  *
  * GPX is not offered: it is a GPS format whose points require coordinates, so an indoor ride without a
@@ -70,8 +71,16 @@ export function trackDistance(samples: readonly Sample[]): number {
 /**
  * Build the activity from the 1 Hz samples. Speed comes from the trainer when it reports one,
  * otherwise from the power (flat-road physics), so the activity has a plausible distance.
+ *
+ * Laps: a ramp config gives one lap per warm-up / ramp step; a list of lap start times (seconds since the start,
+ * ascending) gives one lap per entry that has samples, for games with their own structure (e.g. one per block).
  */
-export function buildActivity(samples: readonly Sample[], cfg: RampConfig, start: Date, duration?: number): Activity {
+export function buildActivity(
+  samples: readonly Sample[],
+  laps: RampConfig | readonly number[],
+  start: Date,
+  duration?: number,
+): Activity {
   let distance = 0;
   const points: ActivityPoint[] = samples.map((s, i) => {
     const speed = sampleSpeed(s);
@@ -80,21 +89,34 @@ export function buildActivity(samples: readonly Sample[], cfg: RampConfig, start
     return { t: s.t, power: s.power, heartRate: s.heartRate, cadence: s.cadence, speed, distance };
   });
   const end = Math.max(duration ?? 0, (points.at(-1)?.t ?? 0) + (points.length ? 1 : 0));
+  const lapOf = Array.isArray(laps) ? lapIndexIn(laps as readonly number[]) : (t: number) => rampStateAt(laps as RampConfig, t).step;
+  return { start, points, laps: splitLaps(points, lapOf, end), summary: summarize(points, end, distance) };
+}
 
-  // One lap per warm-up / ramp step, as a smart trainer app would record it.
+/** Lap number of a time for a list of ascending lap start times (before the first start: lap 0). */
+const lapIndexIn = (starts: readonly number[]) => (t: number) => {
+  let i = 0;
+  while (i + 1 < starts.length && starts[i + 1]! <= t) i++;
+  return i;
+};
+
+/** One lap per run of points with the same lap number, as a smart trainer app would record it. */
+function splitLaps(points: readonly ActivityPoint[], lapOf: (t: number) => number, end: number): ActivityLap[] {
   const laps: ActivityLap[] = [];
+  let current: number | undefined;
   for (const p of points) {
-    const step = rampStateAt(cfg, p.t).step;
+    const n = lapOf(p.t);
     const lap = laps.at(-1);
-    if (lap && rampStateAt(cfg, lap.start).step === step) lap.points.push(p);
+    if (lap && n === current) lap.points.push(p);
     else laps.push({ start: p.t, duration: 0, points: [p], summary: summarize([], 0, 0) });
+    current = n;
   }
   laps.forEach((lap, i) => {
     lap.duration = (laps[i + 1]?.start ?? end) - lap.start;
     const before = i === 0 ? 0 : laps[i - 1]!.points.at(-1)!.distance;
     lap.summary = summarize(lap.points, lap.duration, lap.points.at(-1)!.distance - before);
   });
-  return { start, points, laps, summary: summarize(points, end, distance) };
+  return laps;
 }
 
 export function summarize(points: readonly ActivityPoint[], duration: number, distance: number): ActivitySummary {
