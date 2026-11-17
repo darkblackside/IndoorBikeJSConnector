@@ -1,5 +1,5 @@
-# Publishes the web app (apps/web) (test bench + Zombie Ramp) to GitHub Pages on every push to main:
-# https://darkblackside.github.io/IndoorBikeJSConnector/ (Zombie Ramp under /zombie-ramp/).
+# Publishes the web app (apps/web) (game hub, Zombie Ramp, hidden /debug/ bench) to GitHub Pages on every push to main:
+# https://darkblackside.github.io/IndoorBikeJSConnector/ (Zombie Ramp under /zombie-ramp/, debug bench under /debug/).
 # One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
 name: Pages
 on:

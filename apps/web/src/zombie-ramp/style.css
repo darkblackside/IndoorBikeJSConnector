@@ -93,3 +93,7 @@ input[type="range"] { accent-color: var(--me); vertical-align: middle; }
 #chart-empty { margin: -100px 0 92px 36px; height: 0; }
 
 .ftp .margin { font-size: 1.6rem; font-weight: 600; margin-left: 10px; color: var(--muted); text-shadow: none; }
+
+/* Link back to the game hub */
+.back { display: inline-block; margin-bottom: 8px; color: var(--bm-color-text-muted); text-decoration: none; font-size: 0.9rem; }
+.back:hover, .back:focus-visible { color: var(--bm-color-accent); }

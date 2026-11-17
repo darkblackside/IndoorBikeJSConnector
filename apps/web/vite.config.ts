@@ -2,7 +2,8 @@ import { defineConfig, defaultClientConditions } from "vite";
 import { fileURLToPath } from "node:url";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 
-// The web frontend: trainer test bench (index.html) and the Zombie Ramp game (zombie-ramp/index.html).
+// The web frontend: game hub (index.html, Offline/Online tabs), the Zombie Ramp game (zombie-ramp/) and the
+// hidden debug bench (debug/, not linked from the app; reachable by its URL only).
 // The workspace packages (indoor-bike-js-connector, @indoor-bike/game-core) are used from their TypeScript
 // sources through the "indoor-bike-source" export condition, so no package build is needed for dev or build.
 //
@@ -21,7 +22,7 @@ export default defineConfig(({ mode }) => ({
     target: "es2022",
     sourcemap: true,
     rollupOptions: {
-      input: { bench: page("index.html"), zombieRamp: page("zombie-ramp/index.html") },
+      input: { home: page("index.html"), zombieRamp: page("zombie-ramp/index.html"), debug: page("debug/index.html") },
     },
   },
 }));

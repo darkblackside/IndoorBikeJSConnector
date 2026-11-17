@@ -6,12 +6,13 @@ Games and training apps for smart trainers in the browser. This repository is an
 | --- | --- | --- | --- |
 | `packages/connector` | `indoor-bike-js-connector` (published) | The Web Bluetooth trainer/HR library: FTMS, Wahoo, Tacx FE-C, Cycling Power, ERG/SIM. No UI, no runtime deps. **[Docs](packages/connector/README.md)** | Browser |
 | `packages/game-core` | `@indoor-bike/game-core` (private) | Game rules and simulation (Zombie Ramp: ramp test, city/horde, .fit/.tcx export) and the multiplayer protocol: Colyseus room state schema and client messages. No DOM, no engine | Browser + Node |
-| `apps/web` | `@indoor-bike/web` (private) | Frontend (Vite, TypeScript, **three.js**): trainer test bench, the [Zombie Ramp](apps/web/ZOMBIE_RAMP.md) game, the multiplayer client. [Details](apps/web/README.md) | Browser |
+| `apps/web` | `@indoor-bike/web` (private) | Frontend (Vite, TypeScript, **three.js**): game hub with Offline/Online tabs, the [Zombie Ramp](apps/web/ZOMBIE_RAMP.md) game, a hidden debug bench, the multiplayer client. [Details](apps/web/README.md) | Browser |
 | `apps/server` | `@indoor-bike/server` (private) | Multiplayer backend (Node, TypeScript, **Colyseus** over WebSocket): ride rooms with synced state. No game loop yet. [Details](apps/server/README.md) | Node |
 
-**Try it:** [test bench](https://darkblackside.github.io/IndoorBikeJSConnector/) and the
-[Zombie Ramp](https://darkblackside.github.io/IndoorBikeJSConnector/zombie-ramp/) FTP test game, in Chrome or Edge
-(both also run with simulated devices). Deployed from `main` by `.github/workflows/pages.yml`.
+**Try it:** [the game hub](https://darkblackside.github.io/IndoorBikeJSConnector/) in Chrome or Edge: the **Offline**
+tab has the single-player games (so far the Zombie Ramp FTP test), the **Online** tab is for multiplayer (empty for
+now). Everything also runs with simulated devices. Developers: the debug bench for the connector is not linked from
+the app, it is at [/debug/](https://darkblackside.github.io/IndoorBikeJSConnector/debug/). Deployed from `main` by `.github/workflows/pages.yml`.
 
 ## Architecture
 
@@ -70,7 +71,7 @@ npm test             # tests of every workspace (Node, no hardware needed)
 npm run typecheck    # every workspace with its own tsconfig
 npm run build        # connector, game-core and server -> their dist/
 npm run build:web    # web app -> apps/web/dist (what GitHub Pages serves)
-npm run dev          # web app at http://localhost:5173 (test bench; Zombie Ramp at /zombie-ramp/)
+npm run dev          # web app at http://localhost:5173 (hub; /zombie-ramp/, /debug/, /sandbox/)
 npm run dev:https    # same over HTTPS on your LAN, for testing from a phone/tablet
 npm run dev:server   # multiplayer server at ws://localhost:8787 (restarts on changes)
 npm run <script> -w <workspace>   # e.g. npm test -w @indoor-bike/game-core
@@ -81,7 +82,7 @@ condition, set in `apps/web/vite.config.ts` and `tsconfig.base.json`), so editin
 shows up in `npm run dev` and `npm run dev:server` (tsx with the same condition) without a build. The built server
 (`npm start -w @indoor-bike/server`) loads their built `dist/` instead.
 
-The test bench can switch between real Bluetooth and the simulated devices, so ERG/SIM can be tried
+The debug bench (`/debug/`) can switch between real Bluetooth and the simulated devices, so ERG/SIM can be tried
 without a trainer.
 
 > Real-hardware status: the parsers are checked against the published specs (FTMS, Cycling Power,
