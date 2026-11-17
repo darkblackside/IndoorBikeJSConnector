@@ -72,6 +72,7 @@ bike.disconnect();
 | `testing/` | Fake Web Bluetooth stack + simulated trainers (FTMS, Wahoo, Tacx, power meter) and HRM | – |
 | `test/` | Vitest unit tests (spec byte vectors) and integration tests against the simulators | – |
 | `demo/` | Manual test bench page (real Bluetooth or simulated devices) | – |
+| `demo/zombie-ramp/` | Zombie Ramp: example game, a ramp FTP test (see below) | – |
 
 ## Development
 
@@ -88,6 +89,20 @@ npm run dev:https    # same over HTTPS on your LAN, for testing from a phone/tab
 
 The demo can switch between real Bluetooth and the simulated devices, so ERG/SIM can be tried
 without a trainer.
+
+### Zombie Ramp (example game)
+
+`npm run dev`, then open http://localhost:5173/zombie-ramp/. A ramp FTP test as a game:
+you are the turquoise dot riding through a top-down city grid, turning at the street corners, with a
+horde of red zombie dots behind you.
+
+- Optional warm-up (3/5/10 min at a set wattage), then the target rises by 25 W (or 20 W) every minute.
+  The trainer holds the target in ERG mode; trainers without ERG show the target to match.
+- The zombies run at the target wattage, you run at your measured power (3 s average). Hold the target and
+  they stay behind (and creep a bit closer each step); fall short and they close in. If they catch you, the test ends.
+- Stop pedalling (cadence below 20 rpm, or no data, for 4 s) and the test ends with the result screen:
+  FTP = target of the last fully completed minute × 0.75, plus W/kg, best 1-min power and a power chart.
+- Works with the simulated trainer too (cadence slider and a "Stop pedalling" button).
 
 > Real-hardware status: the parsers are checked against the published specs (FTMS, Cycling Power,
 > ANT+ FE-C) and the Wahoo encoding follows the open-source implementations (GoldenCheetah and others).

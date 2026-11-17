@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Zombie Ramp – FTP test</title>
+  </head>
+  <body>
+    <canvas id="city"></canvas>
+
+    <!-- Setup -->
+    <section id="setup" class="panel">
+      <h1><span class="me">●</span> Zombie Ramp <span class="zed">● ● ●</span></h1>
+      <p class="muted">
+        A ramp FTP test. After the warm-up the target rises every minute until you can't go on.
+        The zombies run at the target wattage: hold it and they stay behind you, fall short and they close in.
+        Stop pedalling and the test ends. FTP = last fully completed minute × 0.75.
+      </p>
+
+      <div class="grid">
+        <label>Warm-up
+          <select id="cfg-warmup">
+            <option value="0">none</option>
+            <option value="180">3 min</option>
+            <option value="300" selected>5 min</option>
+            <option value="600">10 min</option>
+          </select>
+        </label>
+        <label>Warm-up power <span><input id="cfg-warmup-w" type="number" min="0" max="500" step="5" value="100" /> W</span></label>
+        <label>Ramp start <span><input id="cfg-start" type="number" min="0" max="500" step="5" value="100" /> W</span></label>
+        <label>Step every minute
+          <select id="cfg-step">
+            <option value="20">+20 W</option>
+            <option value="25" selected>+25 W</option>
+          </select>
+        </label>
+        <label>Your weight (optional) <span><input id="cfg-weight" type="number" min="30" max="200" step="0.5" placeholder="kg" /> kg</span></label>
+      </div>
+
+      <div class="row">
+        <label><input type="radio" name="source" value="real" checked /> Bluetooth trainer</label>
+        <label><input type="radio" name="source" value="sim" /> Simulated trainer</label>
+      </div>
+      <div class="row">
+        <button id="connect-trainer">Connect trainer</button>
+        <span id="trainer-status" class="status">disconnected</span>
+      </div>
+      <div class="row">
+        <button id="connect-hrm">Connect heart rate (optional)</button>
+        <span id="hrm-status" class="status">disconnected</span>
+      </div>
+      <p id="bt-warning" class="warn" hidden></p>
+      <button id="start" class="primary" disabled>Start</button>
+    </section>
+
+    <!-- In-game HUD -->
+    <div id="hud" hidden>
+      <div class="hud-top">
+        <div class="card phase">
+          <div id="phase-label" class="label">Warm-up</div>
+          <div id="phase-time" class="big">5:00</div>
+          <div class="bar"><div id="phase-bar"></div></div>
+          <div id="phase-next" class="muted small"></div>
+        </div>
+        <div class="card watts">
+          <div class="label">Power</div>
+          <div><b id="power" class="huge">–</b><span class="unit">W</span></div>
+          <div class="muted">target <b id="target">–</b> W <span id="erg-badge" class="badge">ERG</span></div>
+        </div>
+        <div class="card stats">
+          <div><span class="label">Cadence</span><b id="cadence">–</b> rpm</div>
+          <div><span class="label">Heart rate</span><b id="hr">–</b> bpm</div>
+          <div><span class="label">Zombies</span><b id="gap">–</b> m behind</div>
+          <div><span class="label">Horde</span><b id="horde">–</b></div>
+        </div>
+      </div>
+      <div id="banner" class="banner"></div>
+      <div id="prompt" class="prompt">Start pedalling to begin</div>
+      <div class="hud-bottom">
+        <button id="mute" class="ghost">🔊</button>
+        <button id="quit" class="ghost">End test</button>
+      </div>
+      <div id="sim-panel" class="card sim" hidden>
+        <div class="label">Simulated rider</div>
+        cadence <input id="sim-cadence" type="range" min="0" max="120" value="90" /> <span id="sim-cadence-v">90</span> rpm
+        <button id="sim-stop">Stop pedalling</button>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <section id="result" class="panel" hidden>
+      <div id="result-reason" class="muted"></div>
+      <h1>Your FTP</h1>
+      <div class="ftp"><b id="ftp">–</b><span class="unit">W</span></div>
+      <div id="wkg" class="muted"></div>
+      <div id="ftp-note" class="muted small"></div>
+      <canvas id="chart" height="180"></canvas>
+      <div class="facts">
+        <div><span class="label">Last full step</span><b id="r-last">–</b></div>
+        <div><span class="label">Steps completed</span><b id="r-steps">–</b></div>
+        <div><span class="label">Best 1-min power</span><b id="r-best">–</b></div>
+        <div><span class="label">Max power</span><b id="r-max">–</b></div>
+        <div><span class="label">Max heart rate</span><b id="r-hr">–</b></div>
+        <div><span class="label">Duration</span><b id="r-time">–</b></div>
+      </div>
+      <button id="again" class="primary">Ride again</button>
+    </section>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
