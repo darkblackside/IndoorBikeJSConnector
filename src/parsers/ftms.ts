@@ -187,4 +187,54 @@ export function parseFtmsResponse(view: DataView): FtmsResponse | undefined {
   return { requestOpCode: view.getUint8(1), resultCode: view.getUint8(2) };
 }
 
+// ---------------------------------------------------------------------------
+// Fitness Machine Status (0x2ADA), §4.17
+// The machine notifies every client when its state changes, including changes made
+// by another client (e.g. a watch connected to the same trainer).
+// ---------------------------------------------------------------------------
+
+export const FtmsStatusOpCode = {
+  Reset: 0x01,
+  StoppedOrPausedByUser: 0x02,
+  StoppedBySafetyKey: 0x03,
+  StartedOrResumedByUser: 0x04,
+  TargetPowerChanged: 0x08,
+  IndoorBikeSimulationChanged: 0x12,
+  ControlPermissionLost: 0xff,
+} as const;
+
+export type FtmsStatus =
+  | { kind: "reset" }
+  | { kind: "stopped" }
+  | { kind: "started" }
+  | { kind: "target-power"; watts: number }
+  | { kind: "simulation"; grade: number; windSpeed: number }
+  | { kind: "control-lost" }
+  | { kind: "other"; opCode: number };
+
+export function parseFitnessMachineStatus(view: DataView): FtmsStatus | undefined {
+  if (view.byteLength < 1) return undefined;
+  const op = view.getUint8(0);
+  const S = FtmsStatusOpCode;
+  switch (op) {
+    case S.Reset:
+      return { kind: "reset" };
+    case S.StoppedOrPausedByUser:
+    case S.StoppedBySafetyKey:
+      return { kind: "stopped" };
+    case S.StartedOrResumedByUser:
+      return { kind: "started" };
+    case S.TargetPowerChanged:
+      return view.byteLength >= 3 ? { kind: "target-power", watts: view.getInt16(1, true) } : { kind: "other", opCode: op };
+    case S.IndoorBikeSimulationChanged:
+      return view.byteLength >= 5
+        ? { kind: "simulation", windSpeed: view.getInt16(1, true) / 1000, grade: view.getInt16(3, true) / 100 }
+        : { kind: "other", opCode: op };
+    case S.ControlPermissionLost:
+      return { kind: "control-lost" };
+    default:
+      return { kind: "other", opCode: op };
+  }
+}
+
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));

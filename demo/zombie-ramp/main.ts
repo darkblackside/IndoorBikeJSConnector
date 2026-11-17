@@ -19,6 +19,7 @@ import { CityScene, darkColors } from "./city.ts";
 import {
   defaultRampConfig,
   gapSurge,
+  onStop,
   RampRecorder,
   restGapForCadence,
   rampStateAt,
@@ -54,7 +55,7 @@ const simHrm = fake.add(createSimulatedHeartRateMonitor());
 const source = () => $<HTMLInputElement>('input[name="source"]:checked').value;
 const useSim = () => source() !== "real";
 const simProtocol = (): ProtocolName => (source() === "sim-pm" ? "cycling-power" : "ftms");
-/** ERG wanted by the rider (checkbox) and possible with the connected device. */
+/** ERG wanted by the rider (checkbox) and working on the connected device right now. */
 const ergAvailable = () => $<HTMLInputElement>("#cfg-erg").checked && bike.trainer.capabilities.erg;
 
 if (!("bluetooth" in navigator)) {
@@ -88,15 +89,25 @@ function createBike(): IndoorBike {
       status === "disconnected" ? (t ? "Connect trainer" : "Connect heart rate (optional)") : "Disconnect";
     $<HTMLElementTagNameMap["bm-button"]>("#start").disabled = b.trainer.status !== "connected";
   });
+  // ERG can stop or start working while connected (e.g. a watch paired to the same trainer takes control).
+  b.on("control", () => {
+    updateErgNote(b);
+    syncErgHud();
+  });
   return b;
 }
 
+/** The ERG option is only offered while ERG works with the connected trainer. */
 function updateErgNote(b: IndoorBike) {
   const note = $("#erg-note");
   const connected = b.trainer.status === "connected";
-  note.hidden = !connected || b.trainer.capabilities.erg;
-  note.textContent = "This device can't set a target wattage, so its power is only read: match the target with gears and cadence.";
-  $<HTMLInputElement>("#cfg-erg").disabled = connected && !b.trainer.capabilities.erg;
+  const works = b.trainer.capabilities.erg;
+  note.hidden = !connected || works;
+  note.textContent = b.trainer.controlDenied
+    ? "ERG isn't available: another device (e.g. a watch paired to the trainer as a smart trainer) is controlling it. " +
+      "Pair the watch to the trainer as a power sensor only, or reconnect after the watch let go. Until then match the target with gears and cadence."
+    : "This device can't set a target wattage, so its power is only read: match the target with gears and cadence.";
+  $("#cfg-erg-row").hidden = connected && !works;
 }
 
 for (const r of document.querySelectorAll<HTMLInputElement>('input[name="source"]')) {
@@ -120,6 +131,7 @@ async function toggle(kind: "trainer" | "hrm") {
       simTrainer.state.cadence = 0;
       simTrainer.state.riderPower = Number($<HTMLInputElement>("#sim-power").value);
       simTrainer.start(250);
+      $("#sim-watch").textContent = "Watch takes control";
     }
     if (kind === "hrm") simHrm.start(1000);
   }
@@ -141,6 +153,18 @@ const setSimCadence = (v: number) => {
 };
 $<HTMLInputElement>("#sim-cadence").addEventListener("input", (e) => setSimCadence(Number((e.target as HTMLInputElement).value)));
 $("#sim-stop").addEventListener("click", () => setSimCadence(0));
+// A watch paired to the same trainer that grabs control (and, like strict FTMS trainers, won't hand it back).
+$("#sim-watch").addEventListener("click", () => {
+  if (!simTrainer) return;
+  const taking = !simTrainer.state.otherHasControl;
+  if (taking) {
+    simTrainer.state.exclusiveControl = true;
+    simTrainer.otherClient.takeControl();
+  } else {
+    simTrainer.otherClient.release();
+  }
+  $("#sim-watch").textContent = taking ? "Watch lets go" : "Watch takes control";
+});
 // Rider's own power, used when the trainer is not holding an ERG target.
 const setSimPower = (v: number) => {
   $<HTMLInputElement>("#sim-power").value = String(v);
@@ -177,11 +201,14 @@ $("#mute").addEventListener("click", () => {
 });
 
 // --- game state ----------------------------------------------------------------------
-type Mode = "setup" | "waiting" | "riding" | "done";
+type Mode = "setup" | "waiting" | "riding" | "paused" | "done";
 let mode: Mode = "setup";
 let cfg: RampConfig = defaultRampConfig;
-/** Whether this run lets the trainer hold the target (ERG) or only reads the power. */
+/** Whether this run wants the trainer to hold the target (ERG) or only reads the power. */
 let ergMode = false;
+/** ERG wanted and the trainer really holds the target right now (it can stop, e.g. when a watch takes control). */
+const ergOn = () => ergMode && bike.trainer.ergActive;
+let ergShown: boolean | undefined;
 let scene = new CityScene();
 let recorder = new RampRecorder(cfg);
 const stop = new StopDetector();
@@ -228,7 +255,7 @@ function allowScreenOff() {
 }
 // The browser drops the lock whenever the page is hidden: take it again when the rider comes back.
 document.addEventListener("visibilitychange", () => {
-  if (mode === "waiting" || mode === "riding") void keepScreenOn();
+  if (mode === "waiting" || mode === "riding" || mode === "paused") void keepScreenOn();
 });
 
 $("#start").addEventListener("click", () => {
@@ -252,17 +279,16 @@ $("#start").addEventListener("click", () => {
   mode = "waiting";
   $("#setup").hidden = true;
   $("#hud").hidden = false;
-  $("#prompt").hidden = false;
+  showPrompt("Start pedalling to begin", "Don't stop pedalling, or the zombies are going to get you!");
   $("#sim-panel").hidden = !useSim();
   ergMode = ergAvailable();
-  $("#erg-badge").textContent = ergMode ? "ERG" : "match it";
-  $("#hint").hidden = ergMode;
-  $("#sim-power-row").hidden = ergMode;
+  ergShown = undefined;
   const first = rampStateAt(cfg, 0).target;
   // ERG: hold the first target already, so the trainer is ready when the rider starts.
   // Otherwise make sure no earlier target is left on the trainer and just read the power.
   if (ergMode) bike.setTargetPower(first);
   else bike.releaseControl();
+  syncErgHud();
   $("#target").textContent = String(first);
   if (useSim()) {
     setSimCadence(90);
@@ -270,8 +296,37 @@ $("#start").addEventListener("click", () => {
   }
 });
 
+function showPrompt(text: string, warn: string) {
+  $("#prompt-text").textContent = text;
+  $("#prompt-warn").textContent = warn;
+  $("#prompt").hidden = false;
+}
+
+/** Show ERG only while it really works; otherwise the rider matches the target. */
+function syncErgHud() {
+  if (mode === "setup") return;
+  const on = ergOn();
+  if (on === ergShown) return;
+  const before = ergShown;
+  ergShown = on;
+  $("#erg-badge").textContent = on ? "ERG" : "match it";
+  $("#hint").hidden = on;
+  $("#sim-power-row").hidden = on;
+  if (ergMode && before !== undefined && mode === "riding") {
+    banner(on ? "ERG is back" : "ERG lost (another device controls the trainer): match the target", 4000);
+  }
+}
+
+/** Stopped during the warm-up: hold everything until the rider pedals again. */
+function pause() {
+  mode = "paused";
+  recorder.truncate(elapsed);
+  showPrompt("Warm-up paused", "Start pedalling to continue the warm-up");
+  beep(440, 0.3);
+}
+
 $("#quit").addEventListener("click", () => {
-  if (mode === "riding") finish("You ended the test.");
+  if (mode === "riding" || mode === "paused") finish("You ended the test.");
   else if (mode === "waiting") backToSetup();
 });
 $("#again").addEventListener("click", backToSetup);
@@ -324,6 +379,19 @@ function frame() {
       $("#prompt").hidden = true;
       beep(880, 0.25);
     }
+  } else if (mode === "paused") {
+    // Warm-up on hold: the clock and the horde wait for the rider.
+    shownGap = gap;
+    scene.update(dt, 0, gap);
+    renderHud("Warm-up paused", rampStateAt(cfg, elapsed), p3);
+    if (fresh && stop.isPedalling(d.cadence, d.power)) {
+      mode = "riding";
+      pedalElapsed = elapsed;
+      stop.reset();
+      $("#prompt").hidden = true;
+      banner("Warm-up continues");
+      beep(880, 0.25);
+    }
   } else if (mode === "riding") {
     const k = timeScale();
     elapsed += realDt * k;
@@ -352,7 +420,7 @@ function frame() {
     // Grace period after each target change while the power catches up: 4 s in ERG (the trainer adjusts, plus the
     // 3 s power average), 10 s without ERG (the rider has to notice the new target, shift and spin up).
     // Real seconds, not game seconds: the lag is real time even when the simulation is sped up.
-    const graceSeconds = ergMode ? 4 : 10;
+    const graceSeconds = ergOn() ? 4 : 10;
     const grace = st.elapsed < graceSeconds * k && vMe < vZed;
     if (!grace) gap = Math.min(MAX_GAP, gap + (vMe - vZed) * GAP_GAIN * gdt);
     // While you hold the target the horde settles at a distance set by your cadence: 50 m at 90 rpm or more,
@@ -371,11 +439,12 @@ function frame() {
     else if (stopped) {
       // Many trainers go quiet once the flywheel stops, so stale data after low cadence = stopped too.
       const quiet = !fresh && stop.isPedalling(d.cadence, d.power);
-      // The test ends when the pedalling stopped, not when the stop was confirmed.
+      // The test ends (or the warm-up pauses) when the pedalling stopped, not when the stop was confirmed.
       elapsed = Math.min(elapsed, pedalElapsed);
-      finish(quiet ? "The trainer stopped sending data." : "You stopped pedalling.");
+      if (onStop(cfg, elapsed) === "pause") pause();
+      else finish(quiet ? "The trainer stopped sending data." : "You stopped pedalling.");
     }
-    renderHud(st.phase === "warmup" ? "Warm-up" : `Step ${st.step + 1}`, st, p3);
+    if (mode === "riding") renderHud(st.phase === "warmup" ? "Warm-up" : `Step ${st.step + 1}`, st, p3);
   } else {
     scene.update(dt, 0, Math.max(0, shownGap - dt * 8));
   }
@@ -395,8 +464,10 @@ function renderHud(label: string, st: ReturnType<typeof rampStateAt>, p3: number
   $("#target").textContent = String(st.target);
   // Without ERG the rider has to hit the target: show how far off they are.
   const low = p3 !== undefined && p3 < st.target * 0.95;
-  $("#power").classList.toggle("low", !ergMode && low);
-  if (!ergMode) {
+  syncErgHud();
+  const erg = ergOn();
+  $("#power").classList.toggle("low", !erg && low);
+  if (!erg) {
     const hint = $("#hint");
     const diff = p3 === undefined ? undefined : Math.round(st.target - p3);
     hint.className = `hint ${diff === undefined ? "" : diff > 5 ? "low" : diff < -5 ? "high" : "ok"}`;

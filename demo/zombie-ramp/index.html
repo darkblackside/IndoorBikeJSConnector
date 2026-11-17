@@ -42,7 +42,7 @@
         </bm-field>
         <bm-field label="Your weight" optional size="sm"><input id="cfg-weight" type="number" min="30" max="200" step="0.5" /><span slot="end">kg</span></bm-field>
       </div>
-      <bm-check description="The trainer sets the target wattage. Off: power is only read from the device.">
+      <bm-check id="cfg-erg-row" description="The trainer sets the target wattage. Off: power is only read from the device.">
         <input id="cfg-erg" type="checkbox" checked /> Use ERG mode
       </bm-check>
       <bm-notice id="erg-note" tone="warning" hidden></bm-notice>
@@ -88,8 +88,8 @@
       </div>
       <div id="banner" class="banner"></div>
       <div id="prompt" class="prompt">
-        Start pedalling to begin
-        <div class="warn">Don't stop pedalling, or the zombies are going to get you!</div>
+        <span id="prompt-text">Start pedalling to begin</span>
+        <div id="prompt-warn" class="warn">Don't stop pedalling, or the zombies are going to get you!</div>
       </div>
       <div class="hud-bottom">
         <bm-button id="mute" size="sm">🔊</bm-button>
@@ -101,6 +101,7 @@
         <div id="sim-power-row">power <input id="sim-power" type="range" min="0" max="600" step="5" value="150" /> <span id="sim-power-v">150</span> W</div>
         <div>time <input id="sim-speed" type="range" min="1" max="30" value="1" /> <span id="sim-speed-v">1</span>× speed</div>
         <bm-button id="sim-stop" size="sm">Stop pedalling</bm-button>
+        <bm-button id="sim-watch" size="sm" title="Simulates a watch paired to the same trainer that takes control and won't give it back">Watch takes control</bm-button>
       </div>
     </div>
 

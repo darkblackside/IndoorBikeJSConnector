@@ -23,6 +23,16 @@ export interface TrainerCapabilities {
   simulation: boolean;
 }
 
+/** Who controls the trainer right now; emitted as the trainer's `control` event whenever it changes. */
+export interface TrainerControl {
+  /** What can be controlled right now (false while another client holds control). */
+  capabilities: TrainerCapabilities;
+  /** The trainer could be controlled, but another app or device (e.g. a watch) holds control. */
+  controlDenied: boolean;
+  /** An ERG target is requested and the trainer accepted it: the trainer really holds the wattage. */
+  ergActive: boolean;
+}
+
 /** Road simulation parameters. Only `grade` is required. */
 export interface SimulationParams {
   /** Road grade in percent, e.g. 4.5 for 4.5 %. Negative for downhill. */

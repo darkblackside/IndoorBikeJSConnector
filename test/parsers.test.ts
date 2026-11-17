@@ -56,6 +56,24 @@ describe("FTMS indoor bike data", () => {
   });
 });
 
+describe("FTMS fitness machine status", () => {
+  const view = (...b: number[]) => new DataView(Uint8Array.from(b).buffer);
+  it("decodes what other clients did to the trainer", () => {
+    expect(ftms.parseFitnessMachineStatus(view(0xff))).toEqual({ kind: "control-lost" });
+    expect(ftms.parseFitnessMachineStatus(view(0x01))).toEqual({ kind: "reset" });
+    expect(ftms.parseFitnessMachineStatus(view(0x02, 0x01))).toEqual({ kind: "stopped" });
+    expect(ftms.parseFitnessMachineStatus(view(0x08, 0xc8, 0x00))).toEqual({ kind: "target-power", watts: 200 });
+    // wind 0.5 m/s, grade -2.5 %
+    expect(ftms.parseFitnessMachineStatus(view(0x12, 0xf4, 0x01, 0x06, 0xff, 40, 51))).toEqual({
+      kind: "simulation",
+      windSpeed: 0.5,
+      grade: -2.5,
+    });
+    expect(ftms.parseFitnessMachineStatus(view(0x0a))).toEqual({ kind: "other", opCode: 0x0a });
+    expect(ftms.parseFitnessMachineStatus(view())).toBeUndefined();
+  });
+});
+
 describe("Cycling Power", () => {
   it("parses power with wheel and crank data", () => {
     const m = cyclingPower.parseCyclingPowerMeasurement(

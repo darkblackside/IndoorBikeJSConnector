@@ -102,6 +102,11 @@ export class RampRecorder {
     this.samples.push({ t: sec, power, target: rampStateAt(this.cfg, sec).target, heartRate });
   }
 
+  /** Drop samples after `t` (the clock was wound back, e.g. to when a paused warm-up stopped). */
+  truncate(t: number): void {
+    while (this.samples.length && this.samples.at(-1)!.t > t) this.samples.pop();
+  }
+
   result(duration: number): RampResult {
     const cfg = this.cfg;
     const steps = completedSteps(cfg, duration);
@@ -162,6 +167,14 @@ export class StopDetector {
   reset(): void {
     this.lastPedalling = undefined;
   }
+}
+
+/**
+ * What stopping does at test time `t` (when the rider was last seen pedalling): during the warm-up the
+ * test only pauses and goes on when the rider pedals again; once the ramp has started it ends the test.
+ */
+export function onStop(cfg: RampConfig, t: number): "pause" | "finish" {
+  return rampStateAt(cfg, t).phase === "warmup" ? "pause" : "finish";
 }
 
 /**

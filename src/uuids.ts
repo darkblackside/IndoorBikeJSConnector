@@ -16,6 +16,7 @@ export const Characteristic = {
   indoorBikeData: uuid16(0x2ad2),
   supportedPowerRange: uuid16(0x2ad8),
   fitnessMachineControlPoint: uuid16(0x2ad9),
+  fitnessMachineStatus: uuid16(0x2ada),
   // Cycling Power Service
   cyclingPowerMeasurement: uuid16(0x2a63),
   /** Wahoo's proprietary trainer control point, inside the Cycling Power Service (KICKR before FTMS). */
