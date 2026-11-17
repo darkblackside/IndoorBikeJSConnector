@@ -63,6 +63,10 @@ export class IndoorBike extends Emitter<IndoorBikeEvents> {
   freeRide(): void {
     this.trainer.freeRide();
   }
+  /** Stop controlling the trainer; only read its data. */
+  releaseControl(): void {
+    this.trainer.releaseControl();
+  }
 
   disconnect(): void {
     this.trainer.disconnect();

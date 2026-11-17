@@ -99,6 +99,27 @@ describe.each(controllable)("%s trainer", (protocol) => {
     expect(statuses).toEqual(["reconnecting", "connected"]);
     expect(sim.state.mode).toEqual({ kind: "erg", watts: 180 });
   });
+
+  it("releases control: lifts the ERG target, then only reads data", async () => {
+    const t = await connect(protocol);
+    sim = t.sim;
+    t.trainer.setTargetPower(300);
+    await settle();
+    expect(t.trainer.ergActive).toBe(true);
+    t.trainer.releaseControl();
+    await settle();
+    expect(t.trainer.ergActive).toBe(false);
+    expect(t.trainer.mode).toEqual({ kind: "none" });
+    expect(sim.state.mode).toEqual({ kind: "simulation", grade: 0 });
+    const sent = sim.state.commands.length;
+    sim.state.riderPower = 175;
+    await t.ride();
+    await t.ride();
+    expect(t.trainer.data.power).toBe(175);
+    t.trainer.releaseControl();
+    await settle();
+    expect(sim.state.commands.length).toBe(sent); // nothing more is sent
+  });
 });
 
 describe("protocol handshakes", () => {
@@ -138,6 +159,10 @@ describe("protocol handshakes", () => {
     trainer.setTargetPower(200);
     await settle();
     expect(errors[0]?.name).toBe("UnsupportedError");
+    trainer.releaseControl(); // read-only use is fine and raises nothing
+    await settle();
+    expect(errors).toHaveLength(1);
+    expect(trainer.ergActive).toBe(false);
     await ride();
     await ride();
     expect(trainer.data.power).toBeGreaterThan(0);

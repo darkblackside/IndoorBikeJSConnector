@@ -47,6 +47,14 @@ button.ghost { background: var(--surface); }
 .stats b { font-size: 1.3rem; }
 .bar { height: 6px; background: #2a323c; border-radius: 3px; margin: 6px 0; overflow: hidden; }
 #phase-bar { height: 100%; width: 0; background: var(--me); }
+.check { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 10px; cursor: pointer; }
+.check input { margin-top: 4px; }
+.hint { font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.hint.low { color: var(--zed); }
+.hint.ok { color: var(--me); }
+.hint.high { color: var(--muted); }
+.huge.low { color: var(--zed); }
+.sim > div { margin: 4px 0; }
 .badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 999px; background: #2a323c; color: var(--muted); }
 .banner {
   position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%); text-align: center; white-space: nowrap;

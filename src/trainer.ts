@@ -22,7 +22,8 @@ const NO_CAPABILITIES: TrainerCapabilities = { erg: false, simulation: false };
 
 /**
  * A smart trainer (or power meter). Detects the protocol automatically and offers
- * one control API: `setTargetPower` (ERG), `setSimulation` (SIM), `freeRide`.
+ * one control API: `setTargetPower` (ERG), `setSimulation` (SIM), `freeRide`, and
+ * `releaseControl` to stop controlling it and only read data.
  *
  * Control calls are cheap and can be made every frame: only the latest request is
  * kept, at most one command is in flight, and unchanged values are not resent.
@@ -58,6 +59,10 @@ export class Trainer extends BleSensor {
   get mode(): TrainerMode {
     return this.wanted;
   }
+  /** True when the trainer is connected, supports ERG and an ERG target is requested. */
+  get ergActive(): boolean {
+    return this.wanted.kind === "erg" && this.capabilities.erg && this.status === "connected";
+  }
 
   /** ERG mode: hold `watts` regardless of cadence. */
   setTargetPower(watts: number): void {
@@ -74,6 +79,15 @@ export class Trainer extends BleSensor {
   /** Release ERG: flat road simulation, the rider sets the effort via gears/cadence. */
   freeRide(): void {
     this.setSimulation({ grade: 0 });
+  }
+
+  /**
+   * Stop controlling the trainer and only read its data (power, cadence, speed).
+   * If an ERG target was active it is lifted first (flat-road SIM, when supported),
+   * so the rider sets the effort with gears and cadence. Nothing is re-applied on reconnect.
+   */
+  releaseControl(): void {
+    this.request({ kind: "none" });
   }
 
   /** Update rider/bike data used by simulation (takes effect with the next SIM command). */
@@ -143,6 +157,9 @@ export class Trainer extends BleSensor {
             await protocol.setTargetPower(watts);
           } else if (mode.kind === "simulation") {
             await protocol.setSimulation(mode.params);
+          } else if (this.sent.kind === "erg" && protocol.capabilities.simulation) {
+            // Leaving ERG: drop the power target so the rider controls the effort again.
+            await protocol.setSimulation({ ...simulationDefaults, grade: 0 });
           }
         } catch (error) {
           this.reportError(error);
