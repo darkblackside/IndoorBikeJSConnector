@@ -2,8 +2,8 @@ import { defineConfig, defaultClientConditions } from "vite";
 import { fileURLToPath } from "node:url";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 
-// The web frontend: game hub (index.html, Offline/Online tabs), the Zombie Ramp game (zombie-ramp/) and the
-// hidden debug bench (debug/, not linked from the app; reachable by its URL only).
+// The web frontend: game hub (index.html, Offline/Online tabs), the Zombie Ramp game (zombie-ramp/), the 20-minute
+// FTP test (ftp20/) and the hidden debug bench (debug/, not linked from the app; reachable by its URL only).
 // The workspace packages (indoor-bike-js-connector, @indoor-bike/game-core) are used from their TypeScript
 // sources through the "indoor-bike-source" export condition, so no package build is needed for dev or build.
 //
@@ -21,8 +21,15 @@ export default defineConfig(({ mode }) => ({
     emptyOutDir: true,
     target: "es2022",
     sourcemap: true,
+    // three.js alone is ~550 kB minified (~150 kB gzipped); the 20-min FTP test page needs it.
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
-      input: { home: page("index.html"), zombieRamp: page("zombie-ramp/index.html"), debug: page("debug/index.html") },
+      input: {
+        home: page("index.html"),
+        zombieRamp: page("zombie-ramp/index.html"),
+        ftp20: page("ftp20/index.html"),
+        debug: page("debug/index.html"),
+      },
     },
   },
 }));

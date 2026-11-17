@@ -5,12 +5,12 @@ Games and training apps for smart trainers in the browser. This repository is an
 | Workspace | Package | What | Runs in |
 | --- | --- | --- | --- |
 | `packages/connector` | `indoor-bike-js-connector` (published) | The Web Bluetooth trainer/HR library: FTMS, Wahoo, Tacx FE-C, Cycling Power, ERG/SIM. No UI, no runtime deps. **[Docs](packages/connector/README.md)** | Browser |
-| `packages/game-core` | `@indoor-bike/game-core` (private) | Game rules and simulation (Zombie Ramp: ramp test, city/horde, .fit/.tcx export) and the multiplayer protocol: Colyseus room state schema and client messages. No DOM, no engine | Browser + Node |
-| `apps/web` | `@indoor-bike/web` (private) | Frontend (Vite, TypeScript, **three.js**): game hub with Offline/Online tabs, the [Zombie Ramp](apps/web/ZOMBIE_RAMP.md) game, a hidden debug bench, the multiplayer client. [Details](apps/web/README.md) | Browser |
+| `packages/game-core` | `@indoor-bike/game-core` (private) | Game rules and simulation (Zombie Ramp: ramp test, city/horde, .fit/.tcx export; 20-min FTP test: block plan, coaching, pacing, result) and the multiplayer protocol: Colyseus room state schema and client messages. No DOM, no engine | Browser + Node |
+| `apps/web` | `@indoor-bike/web` (private) | Frontend (Vite, TypeScript, **three.js**): game hub with Offline/Online tabs, the [Zombie Ramp](apps/web/ZOMBIE_RAMP.md) and [20-min FTP test](apps/web/FTP20.md) games, a hidden debug bench, the multiplayer client. [Details](apps/web/README.md) | Browser |
 | `apps/server` | `@indoor-bike/server` (private) | Multiplayer backend (Node, TypeScript, **Colyseus** over WebSocket): ride rooms with synced state. No game loop yet. [Details](apps/server/README.md) | Node |
 
 **Try it:** [the game hub](https://darkblackside.github.io/IndoorBikeJSConnector/) in Chrome or Edge: the **Offline**
-tab has the single-player games (so far the Zombie Ramp FTP test), the **Online** tab is for multiplayer (empty for
+tab has the single-player games (the Zombie Ramp ramp test and the 20-min FTP test), the **Online** tab is for multiplayer (empty for
 now). Everything also runs with simulated devices. Developers: the debug bench for the connector is not linked from
 the app, it is at [/debug/](https://darkblackside.github.io/IndoorBikeJSConnector/debug/). Deployed from `main` by `.github/workflows/pages.yml`.
 
@@ -32,8 +32,8 @@ the app, it is at [/debug/](https://darkblackside.github.io/IndoorBikeJSConnecto
   DOM access, so the Node server can run exactly the same rules. Its tsconfig has no DOM lib to keep it that way.
   All randomness is injectable: `new CityWorld(mulberry32(seed))` builds the same city on every client.
 - **Rendering is a replaceable layer.** The engine is **three.js**, set up for 2D for now (orthographic camera, world
-  units = metres, `apps/web/src/engine/stage.ts`); 3D can come later on the same scene. Renderers read game-core state
-  each frame, they never own it. The Zombie Ramp still draws with its plain canvas renderer
+  units = metres, `apps/web/src/engine/stage.ts`); the 20-min FTP test uses it in 3D (perspective runner view,
+  `apps/web/src/ftp20/runnerScene.ts`). Renderers read game-core state each frame, they never own it. The Zombie Ramp still draws with its plain canvas renderer
   (`apps/web/src/zombie-ramp/cityRenderer.ts`); the dev-only sandbox page (`/sandbox/`) shows the same `CityWorld` in three.js.
 - **Multiplayer via Colyseus.** The room state (`RideState`, Colyseus schema) and the client messages live in
   `@indoor-bike/game-core/net`, so server and client share one definition. The server owns the state; Colyseus syncs
@@ -71,7 +71,7 @@ npm test             # tests of every workspace (Node, no hardware needed)
 npm run typecheck    # every workspace with its own tsconfig
 npm run build        # connector, game-core and server -> their dist/
 npm run build:web    # web app -> apps/web/dist (what GitHub Pages serves)
-npm run dev          # web app at http://localhost:5173 (hub; /zombie-ramp/, /debug/, /sandbox/)
+npm run dev          # web app at http://localhost:5173 (hub; /zombie-ramp/, /ftp20/, /debug/, /sandbox/)
 npm run dev:https    # same over HTTPS on your LAN, for testing from a phone/tablet
 npm run dev:server   # multiplayer server at ws://localhost:8787 (restarts on changes)
 npm run <script> -w <workspace>   # e.g. npm test -w @indoor-bike/game-core
