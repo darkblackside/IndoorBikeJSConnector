@@ -87,6 +87,10 @@ export interface Sample {
   power: number;
   target: number;
   heartRate?: number;
+  /** rpm */
+  cadence?: number;
+  /** km/h, the trainer's virtual speed */
+  speed?: number;
 }
 
 /** Records 1 Hz samples and evaluates the test. */
@@ -95,11 +99,11 @@ export class RampRecorder {
   constructor(readonly cfg: RampConfig) {}
 
   /** Call often; keeps one sample per whole second. */
-  record(t: number, power: number, heartRate?: number): void {
+  record(t: number, power: number, heartRate?: number, extra: { cadence?: number; speed?: number } = {}): void {
     const sec = Math.floor(t);
     const last = this.samples.at(-1);
     if (last && Math.floor(last.t) === sec) return;
-    this.samples.push({ t: sec, power, target: rampStateAt(this.cfg, sec).target, heartRate });
+    this.samples.push({ t: sec, power, target: rampStateAt(this.cfg, sec).target, heartRate, ...extra });
   }
 
   /** Drop samples after `t` (the clock was wound back, e.g. to when a paused warm-up stopped). */

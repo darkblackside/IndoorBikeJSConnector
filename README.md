@@ -148,6 +148,10 @@ horde of red zombie dots behind you.
 - Stop pedalling (cadence below 20 rpm, or no data, for 4 s) during the warm-up and the warm-up pauses until you
   pedal again. Once the ramp has started, stopping ends the test with the result screen:
   FTP = target of the last fully completed minute × 0.75, plus W/kg, best 1-min power and a power chart.
+- The result screen also shows average power, cadence and heart rate, distance and work, and lets you download the
+  ride as **.fit** (best) or **.tcx** for Strava, Garmin Connect, TrainingPeaks, intervals.icu and co: an indoor
+  ride with power, cadence, heart rate, speed/distance and one lap per warm-up/ramp step
+  (`demo/zombie-ramp/activity.ts`). No GPX: GPX points need GPS coordinates, which an indoor ride doesn't have.
 - Works with a simulated smart trainer or power meter too (cadence and power sliders, "Stop pedalling" and
   "Watch takes control" buttons).
 

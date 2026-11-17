@@ -77,3 +77,7 @@ input[type="range"] { accent-color: var(--me); vertical-align: middle; }
   .card { padding: 8px 10px; }
   .banner { font-size: 1.3rem; }
 }
+
+.export { margin: 20px 0 12px; padding-top: 12px; border-top: 1px solid var(--bm-color-border, #2a323c); }
+.export h2 { margin: 0 0 4px; font-size: 1.1rem; }
+.export .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }

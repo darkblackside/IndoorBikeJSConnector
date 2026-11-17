@@ -120,6 +120,23 @@
         <div><span class="label">Max power</span><b id="r-max">–</b></div>
         <div><span class="label">Max heart rate</span><b id="r-hr">–</b></div>
         <div><span class="label">Duration</span><b id="r-time">–</b></div>
+        <div><span class="label">Avg power</span><b id="r-avg-power">–</b></div>
+        <div><span class="label">Avg cadence</span><b id="r-avg-cadence">–</b></div>
+        <div><span class="label">Avg heart rate</span><b id="r-avg-hr">–</b></div>
+        <div><span class="label">Distance</span><b id="r-distance">–</b></div>
+        <div><span class="label">Work</span><b id="r-work">–</b></div>
+      </div>
+      <div class="export">
+        <h2>Save your ride</h2>
+        <p class="muted small">
+          For Strava, Garmin Connect, TrainingPeaks, intervals.icu and co: power, cadence, heart rate and one lap per step,
+          as an indoor ride. On Strava: <i>Upload activity</i> → <i>File</i>.
+        </p>
+        <div class="row">
+          <bm-button id="dl-fit" variant="primary">Download .fit</bm-button>
+          <bm-button id="dl-tcx">Download .tcx</bm-button>
+        </div>
+        <p class="muted small">No GPX: GPX needs GPS coordinates, which an indoor ride doesn't have. Use .fit (best) or .tcx.</p>
       </div>
       <bm-button id="again" variant="primary" full-width>Ride again</bm-button>
     </section>

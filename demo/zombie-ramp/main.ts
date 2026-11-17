@@ -15,6 +15,7 @@ import {
   FakeBluetooth,
   type SimulatedTrainer,
 } from "../../testing/index.ts";
+import { buildActivity, encodeFit, encodeTcx, type Activity } from "./activity.ts";
 import { CityScene, darkColors } from "./city.ts";
 import {
   defaultRampConfig,
@@ -222,6 +223,8 @@ let shownGap = START_GAP;
 /** Smoothed cadence; undefined until the device reports one (then the horde rests at 50 m as at 90 rpm). */
 let cadenceAvg: number | undefined;
 let currentStep = -2;
+/** Wall-clock time the rider started; the exported activity starts here. */
+let rideStart = new Date();
 let lastCountdown = -1;
 let bannerTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -349,7 +352,9 @@ function finish(reason: string) {
   if (ergMode && bike.trainer.status === "connected") bike.freeRide();
   if (useSim()) setSimCadence(0);
   beep(220, 0.5, 0.2);
-  showResult(recorder.result(elapsed), reason);
+  const result = recorder.result(elapsed);
+  activity = buildActivity(recorder.samples, cfg, rideStart, elapsed);
+  showResult(result, reason);
 }
 
 // --- loop ----------------------------------------------------------------------------
@@ -373,6 +378,7 @@ function frame() {
     renderHud("Get ready", rampStateAt(cfg, 0), p3);
     if (fresh && stop.isPedalling(d.cadence, d.power)) {
       mode = "riding";
+      rideStart = new Date();
       elapsed = 0;
       pedalElapsed = 0;
       stop.reset();
@@ -414,7 +420,7 @@ function frame() {
     lastCountdown = secLeft;
 
     const power = p3 ?? 0;
-    recorder.record(elapsed, d.power ?? 0, d.heartRate);
+    recorder.record(elapsed, d.power ?? 0, d.heartRate, fresh ? { cadence: d.cadence, speed: d.speed } : {});
     const vMe = speedFromPower(power);
     const vZed = speedFromPower(st.target);
     // Grace period after each target change while the power catches up: 4 s in ERG (the trainer adjusts, plus the
@@ -497,6 +503,32 @@ function draw() {
 }
 
 // --- result ----------------------------------------------------------------------------
+let activity: Activity | undefined;
+let lastResult: RampResult | undefined;
+
+function download(data: BlobPart, type: string, ext: string) {
+  const d = rideStart;
+  const p2 = (n: number) => String(n).padStart(2, "0");
+  const name = `zombie-ramp-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.${ext}`;
+  const url = URL.createObjectURL(new Blob([data], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+$("#dl-fit").addEventListener("click", () => {
+  if (activity) download(encodeFit(activity), "application/vnd.ant.fit", "fit");
+});
+$("#dl-tcx").addEventListener("click", () => {
+  if (!activity) return;
+  const r = lastResult;
+  const notes = r?.ftp === undefined ? "Zombie Ramp FTP test" : `Zombie Ramp FTP test: FTP ${r.ftp} W (last full step ${r.lastStepWatts} W)`;
+  download(encodeTcx(activity, notes), "application/vnd.garmin.tcx+xml", "tcx");
+});
+
 function showResult(r: RampResult, reason: string) {
   $("#hud").hidden = true;
   $("#result").hidden = false;
@@ -517,6 +549,16 @@ function showResult(r: RampResult, reason: string) {
   $("#r-max").textContent = w(r.maxPower);
   $("#r-hr").textContent = r.maxHeartRate === undefined ? "–" : `${r.maxHeartRate} bpm`;
   $("#r-time").textContent = mmss(r.duration);
+  lastResult = r;
+  const s = activity?.summary;
+  const or = (v: number | undefined, unit: string) => (v === undefined ? "–" : `${v} ${unit}`);
+  $("#r-avg-power").textContent = or(s?.avgPower, "W");
+  $("#r-avg-cadence").textContent = or(s?.avgCadence, "rpm");
+  $("#r-avg-hr").textContent = or(s?.avgHeartRate, "bpm");
+  $("#r-distance").textContent = s ? `${(s.distance / 1000).toFixed(2)} km` : "–";
+  $("#r-work").textContent = s ? `${Math.round(s.work)} kJ` : "–";
+  const empty = !activity?.points.length;
+  for (const id of ["#dl-fit", "#dl-tcx"]) $<HTMLElementTagNameMap["bm-button"]>(id).disabled = empty;
   drawChart();
 }
 
