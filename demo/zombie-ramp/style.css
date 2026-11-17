@@ -66,7 +66,7 @@ input[type="range"] { accent-color: var(--me); vertical-align: middle; }
 .sim { position: absolute; bottom: 12px; left: 12px; pointer-events: auto; }
 
 .ftp { font-family: var(--bm-font-numeric); font-size: 5rem; font-weight: 800; color: var(--me); line-height: 1.1; text-shadow: 0 0 24px rgba(64, 224, 208, 0.5); }
-#chart { width: 100%; margin: 16px 0 8px; }
+#chart { width: 100%; margin: 8px 0; }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .facts b { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
 
@@ -77,3 +77,19 @@ input[type="range"] { accent-color: var(--me); vertical-align: middle; }
   .card { padding: 8px 10px; }
   .banner { font-size: 1.3rem; }
 }
+
+.export { margin: 20px 0 12px; padding-top: 12px; border-top: 1px solid var(--bm-color-border, #2a323c); }
+.export h2 { margin: 0 0 4px; font-size: 1.1rem; }
+.export .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 16px; border-bottom: 1px solid var(--border); }
+.tabs button {
+  font: inherit; font-size: 0.85rem; color: var(--muted); background: none; border: 0; cursor: pointer;
+  padding: 8px 12px; margin-bottom: -1px; border-bottom: 2px solid transparent;
+}
+.tabs button:hover { color: var(--text); }
+.tabs button[aria-selected="true"] { color: var(--me); border-bottom-color: var(--me); font-weight: 700; }
+.tabs button:focus-visible { outline: 2px solid var(--me); outline-offset: 2px; }
+#chart-empty { margin: -100px 0 92px 36px; height: 0; }
+
+.ftp .margin { font-size: 1.6rem; font-weight: 600; margin-left: 10px; color: var(--muted); text-shadow: none; }

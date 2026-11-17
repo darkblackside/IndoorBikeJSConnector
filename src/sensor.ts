@@ -1,6 +1,6 @@
 import { Emitter } from "./emitter.ts";
 import { delay } from "./gatt.ts";
-import type { BikeData, BluetoothLike, ConnectionStatus } from "./types.ts";
+import type { BikeData, BluetoothLike, ConnectionStatus, TrainerControl } from "./types.ts";
 
 export interface SensorEvents extends Record<string, unknown> {
   status: ConnectionStatus;
@@ -8,6 +8,8 @@ export interface SensorEvents extends Record<string, unknown> {
   data: Readonly<BikeData>;
   /** Non-fatal problems (failed command, reconnect attempt failed, …). */
   error: Error;
+  /** Trainers only: control state changed (connected, control lost to/regained from another client, ERG failed/works). */
+  control: TrainerControl;
 }
 
 export interface SensorOptions {
@@ -117,6 +119,9 @@ export abstract class BleSensor extends Emitter<SensorEvents> {
     this.emit("data", this._data);
   }
 
+  /** Hook for subclasses, called after every status change (before the `status` event). */
+  protected onStatusChanged(): void {}
+
   protected reportError(error: unknown): void {
     this.emit("error", error instanceof Error ? error : new Error(String(error)));
   }
@@ -164,6 +169,7 @@ export abstract class BleSensor extends Emitter<SensorEvents> {
     if (status === this._status) return;
     this._status = status;
     if (status !== "connected") this.clearData();
+    this.onStatusChanged();
     this.emit("status", status);
   }
 }

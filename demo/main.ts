@@ -43,8 +43,9 @@ function createBike(): IndoorBike {
     rider: { riderWeight: Number($<HTMLInputElement>("#weight").value) || 75 },
   });
   b.on("data", render);
-  b.on("status", ({ device, status }) => {
+  const showStatus = (device: "trainer" | "heartRateMonitor") => {
     const t = device === "trainer";
+    const status = (t ? b.trainer : b.heartRateMonitor).status;
     const el = $(t ? "#trainer-status" : "#hrm-status");
     const name = (t ? b.trainer : b.heartRateMonitor).deviceName;
     el.dataset.s = status;
@@ -52,8 +53,19 @@ function createBike(): IndoorBike {
       status +
       (name && status !== "disconnected" ? ` – ${name}` : "") +
       (t && status === "connected"
-        ? ` – protocol ${b.trainer.protocolName}, ERG ${yes(b.trainer.capabilities.erg)}, SIM ${yes(b.trainer.capabilities.simulation)}`
+        ? ` – protocol ${b.trainer.protocolName}, ERG ${yes(b.trainer.capabilities.erg)}, SIM ${yes(b.trainer.capabilities.simulation)}` +
+          (b.trainer.controlDenied ? " – another device (e.g. a watch) controls the trainer" : "")
         : "");
+  };
+  // Control can change while connected, e.g. when a watch paired to the same trainer takes over.
+  b.on("control", (c) => {
+    showStatus("trainer");
+    render();
+    log(`trainer control: ERG ${yes(c.capabilities.erg)}, SIM ${yes(c.capabilities.simulation)}, ERG holding ${yes(c.ergActive)}${c.controlDenied ? ", denied" : ""}`);
+  });
+  b.on("status", ({ device, status }) => {
+    const t = device === "trainer";
+    showStatus(device);
     $(t ? "#connect-trainer" : "#connect-hrm").textContent =
       status === "disconnected" ? (t ? "Connect trainer" : "Connect heart rate") : "Disconnect";
     log(`${device}: ${status}`);
@@ -81,6 +93,7 @@ function prepareSimTrainer() {
     fake.devices.splice(fake.devices.indexOf(simTrainer.device), 1);
   }
   simTrainer = fake.add(createSimulatedTrainer(protocol));
+  $("#sim-watch").textContent = "Watch takes control";
   simTrainer.state.cadence = Number($<HTMLInputElement>("#sim-cadence").value);
   simTrainer.start(250);
 }
@@ -106,6 +119,17 @@ $<HTMLInputElement>("#sim-cadence").addEventListener("input", (e) => {
   if (simTrainer) simTrainer.state.cadence = v;
 });
 $("#sim-drop").addEventListener("click", () => simTrainer?.device.drop());
+$("#sim-watch").addEventListener("click", () => {
+  if (!simTrainer) return;
+  const taking = !simTrainer.state.otherHasControl;
+  if (taking) {
+    simTrainer.state.exclusiveControl = true; // strict trainer: the watch keeps control
+    simTrainer.otherClient.takeControl();
+  } else {
+    simTrainer.otherClient.release();
+  }
+  $("#sim-watch").textContent = taking ? "Watch lets go" : "Watch takes control";
+});
 
 // --- control -----------------------------------------------------------------------
 const ergInput = $<HTMLInputElement>("#erg");
@@ -148,7 +172,7 @@ function render() {
   $("#distance").textContent = fmt(d.distance);
   const m = bike.trainer.mode;
   $("#mode").textContent =
-    m.kind === "erg" ? `ERG ${m.watts} W` : m.kind === "simulation" ? `SIM ${m.params.grade.toFixed(1)} %` : "none";
+    m.kind === "erg" ? `ERG ${m.watts} W${bike.trainer.ergActive ? "" : " (not held)"}` : m.kind === "simulation" ? `SIM ${m.params.grade.toFixed(1)} %` : "none";
 }
 
 syncSource();

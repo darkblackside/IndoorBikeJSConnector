@@ -12,12 +12,28 @@ export interface ProtocolContext {
   readonly rider: RiderProfile;
   /** Monotonic milliseconds; injectable for tests. */
   now(): number;
+  /** Report a non-fatal problem (e.g. control refused at connect). */
+  warn?(error: Error): void;
+  /** `capabilities`/`controlDenied` changed while connected (control lost or regained). */
+  controlChanged?(): void;
+  /**
+   * Something outside our commands changed the trainer's state: another client (e.g. a
+   * watch connected to the same trainer) took control, reset it, stopped it or set its
+   * own target. The current mode should be sent again.
+   */
+  overridden?(): void;
 }
 
 /** A connected trainer speaking one specific protocol. */
 export interface TrainerProtocol {
   readonly name: ProtocolName;
+  /** What can be controlled right now. May change while connected (see `ProtocolContext.controlChanged`). */
   readonly capabilities: TrainerCapabilities;
+  /**
+   * True while the trainer could be controlled but refuses it, because another client
+   * (an app or a watch) holds control. Commands keep trying to take control back.
+   */
+  readonly controlDenied?: boolean;
   /** Supported ERG range if the trainer reports one. */
   readonly powerRange?: { min: number; max: number };
   setTargetPower(watts: number): Promise<void>;

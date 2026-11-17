@@ -198,6 +198,117 @@ describe("protocol handshakes", () => {
   });
 });
 
+describe("sharing the trainer with a watch (second FTMS client)", () => {
+  async function setup(options: { exclusive?: boolean; watchFirst?: boolean } = {}) {
+    const bluetooth = new FakeBluetooth();
+    const sim = bluetooth.add(createSimulatedTrainer("ftms", "KICKR"));
+    sim.state.exclusiveControl = options.exclusive ?? false;
+    if (options.watchFirst) sim.state.otherHasControl = true;
+    let clock = 0;
+    const trainer = new Trainer({ bluetooth: bluetooth.asBluetooth(), now: () => clock, refreshInterval: 20 });
+    const errors: string[] = [];
+    trainer.on("error", (e) => errors.push(e.message));
+    const controls: boolean[] = [];
+    trainer.on("control", (c) => controls.push(c.ergActive));
+    await trainer.connect();
+    /** Let real time pass for the refresh timer while the injected clock moves on by `ms`. */
+    const wait = async (ms: number) => {
+      clock += ms;
+      await new Promise((r) => setTimeout(r, 60));
+      await settle();
+    };
+    return { sim, trainer, errors, controls, wait };
+  }
+
+  it("takes ERG back when the watch takes control and resets the trainer", async () => {
+    const { sim, trainer, controls } = await setup();
+    trainer.setTargetPower(200);
+    await settle();
+    expect(trainer.ergActive).toBe(true);
+    sim.otherClient.takeControl(); // watch connects: Request Control + Reset
+    await settle();
+    expect(sim.state.mode).toEqual({ kind: "erg", watts: 200 });
+    expect(sim.state.controlGranted).toBe(true);
+    expect(trainer.ergActive).toBe(true);
+    expect(controls.at(-1)).toBe(true);
+    trainer.disconnect();
+  });
+
+  it("re-sends the target when the watch changes it", async () => {
+    const { sim, trainer } = await setup();
+    trainer.setTargetPower(200);
+    await settle();
+    sim.otherClient.takeControl({ reset: false, notify: false });
+    sim.otherClient.setTargetPower(120);
+    await settle();
+    expect(sim.state.mode).toEqual({ kind: "erg", watts: 200 });
+    trainer.disconnect();
+  });
+
+  it("restores a target that the trainer dropped silently (refresh)", async () => {
+    const { sim, trainer, wait } = await setup();
+    trainer.setTargetPower(200);
+    await settle();
+    sim.otherClient.takeControl({ notify: false });
+    expect(sim.state.mode).toEqual({ kind: "none" });
+    await wait(100);
+    expect(sim.state.mode).toEqual({ kind: "erg", watts: 200 });
+    trainer.disconnect();
+  });
+
+  it("connects read-only while the watch holds control, then takes over once it lets go", async () => {
+    const { sim, trainer, errors, wait } = await setup({ exclusive: true, watchFirst: true });
+    expect(trainer.status).toBe("connected");
+    expect(trainer.protocolName).toBe("ftms");
+    expect(trainer.capabilities).toEqual({ erg: false, simulation: false });
+    expect(trainer.controlDenied).toBe(true);
+    expect(errors[0]).toMatch(/ftms: .*control not permitted.*watch/);
+    sim.tick();
+    await settle();
+    expect(trainer.data.cadence).toBe(90); // data flows anyway
+
+    trainer.setTargetPower(200);
+    await settle();
+    expect(trainer.ergActive).toBe(false); // honest: the trainer does not hold 200 W
+    expect(sim.state.mode).toEqual({ kind: "none" });
+    const requests = sim.state.commands.filter((c) => c.startsWith("ftms:request")).length;
+    trainer.setTargetPower(210);
+    await settle();
+    // Refused a moment ago: no new request per call
+    expect(sim.state.commands.filter((c) => c.startsWith("ftms:request")).length).toBe(requests);
+
+    sim.otherClient.release();
+    await wait(6000);
+    expect(sim.state.mode).toEqual({ kind: "erg", watts: 210 });
+    expect(trainer.capabilities.erg).toBe(true);
+    expect(trainer.controlDenied).toBe(false);
+    expect(trainer.ergActive).toBe(true);
+    trainer.disconnect();
+  });
+
+  it("gets control at once from trainers that hand it to the latest client", async () => {
+    const { sim, trainer } = await setup({ watchFirst: true });
+    expect(trainer.capabilities.erg).toBe(true);
+    trainer.setTargetPower(150);
+    await settle();
+    expect(sim.state.mode).toEqual({ kind: "erg", watts: 150 });
+    trainer.disconnect();
+  });
+
+  it("reports ERG as not working when the watch keeps control", async () => {
+    const { sim, trainer, controls } = await setup({ exclusive: true });
+    trainer.setTargetPower(200);
+    await settle();
+    expect(trainer.ergActive).toBe(true);
+    sim.otherClient.takeControl();
+    await settle();
+    expect(trainer.ergActive).toBe(false);
+    expect(trainer.controlDenied).toBe(true);
+    expect(controls.at(-1)).toBe(false);
+    trainer.disconnect();
+  });
+});
+
 describe("IndoorBike facade", () => {
   it("merges trainer and heart rate strap data", async () => {
     const bluetooth = new FakeBluetooth();

@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   completedSteps,
   defaultRampConfig,
+  ftpMargin,
   gapSurge,
+  onStop,
   RampRecorder,
   rampStateAt,
   restGapForCadence,
@@ -38,6 +40,29 @@ describe("ramp FTP test", () => {
   it("gives no FTP when stopped during warm-up or the first step", () => {
     expect(new RampRecorder(cfg).result(200)).toMatchObject({ ftp: undefined, endedInWarmup: true });
     expect(new RampRecorder(cfg).result(330)).toMatchObject({ ftp: undefined, completedSteps: 0 });
+  });
+
+  it("pauses on a stop during the warm-up, ends the test once the ramp has started", () => {
+    expect(onStop(cfg, 0)).toBe("pause");
+    expect(onStop(cfg, 299.9)).toBe("pause");
+    expect(onStop(cfg, 300)).toBe("finish");
+    expect(onStop({ ...cfg, warmupSeconds: 0 }, 0)).toBe("finish");
+  });
+
+  it("drops samples after a paused warm-up was wound back", () => {
+    const rec = new RampRecorder(cfg);
+    for (let t = 0; t <= 20; t++) rec.record(t, 100);
+    rec.truncate(16.4);
+    expect(rec.samples.at(-1)!.t).toBe(16);
+    rec.record(16.9, 100); // same second: not recorded twice
+    rec.record(17.2, 100);
+    expect(rec.samples.map((s) => s.t).slice(-3)).toEqual([15, 16, 17]);
+  });
+
+  it("gives the FTP a margin of ±10 %", () => {
+    expect(ftpMargin(281)).toBe(28);
+    expect(ftpMargin(200)).toBe(20);
+    expect(ftpMargin(4)).toBe(1);
   });
 
   it("detects that the rider stopped pedalling", () => {

@@ -29,6 +29,13 @@ export interface SimulatedTrainerState {
   time: number;
   /** FTMS: control requested; Wahoo: unlocked. Commands before that are rejected/ignored. */
   controlGranted: boolean;
+  /** FTMS: another client (e.g. a watch) holds control. */
+  otherHasControl: boolean;
+  /**
+   * FTMS: refuse our Request Control while another client holds control (strict spec behaviour).
+   * When false (default), the latest client to request control gets it, as many trainers do.
+   */
+  exclusiveControl: boolean;
   /** Decoded commands received, for assertions. */
   commands: string[];
 }
@@ -42,9 +49,24 @@ export interface SimulatedDevice {
   stop(): void;
 }
 
+/** A second client connected to the same trainer, e.g. a Garmin watch. FTMS only. */
+export interface OtherClient {
+  /**
+   * Take control like a watch does when it connects. `reset` clears the trainer's target
+   * (default true); `notify` sends the Fitness Machine Status notifications a real trainer
+   * sends to all clients (default true; false = a trainer that silently drops our target).
+   */
+  takeControl(options?: { reset?: boolean; notify?: boolean }): void;
+  /** Set its own ERG target (needs control). */
+  setTargetPower(watts: number): void;
+  /** Disconnect / give up control. */
+  release(): void;
+}
+
 export interface SimulatedTrainer extends SimulatedDevice {
   protocol: ProtocolName;
   state: SimulatedTrainerState;
+  otherClient: OtherClient;
 }
 
 const TOTAL_MASS = 84; // kg
@@ -72,8 +94,11 @@ export function createSimulatedTrainer(protocol: ProtocolName, name = defaultNam
     distance: 0,
     time: 0,
     controlGranted: false,
+    otherHasControl: false,
+    exclusiveControl: false,
     commands: [],
   };
+  const otherClient: OtherClient = { takeControl() {}, setTargetPower() {}, release() {} };
   let wheelRevs = 0;
   let crankRevs = 0;
   let fecEvents = 0;
@@ -108,11 +133,19 @@ export function createSimulatedTrainer(protocol: ProtocolName, name = defaultNam
       const range = svc.addCharacteristic(Characteristic.supportedPowerRange, { read: true });
       range.readData = () => Uint8Array.of(0, 0, 0xd0, 0x07, 1, 0); // 0–2000 W
       const cp = svc.addCharacteristic(Characteristic.fitnessMachineControlPoint, { write: true, indicate: true });
+      const status = svc.addCharacteristic(Characteristic.fitnessMachineStatus, { notify: true });
+      const S = ftms.FtmsStatusOpCode;
+      const powerStatus = (watts: number) => [S.TargetPowerChanged, watts & 0xff, (watts >> 8) & 0xff];
       cp.onWrite = (b) => {
         const op = b[0]!;
         const respond = (result: number) => cp.notify([0x80, op, result]);
         const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
         if (op === ftms.FtmsOpCode.RequestControl) {
+          if (state.otherHasControl && state.exclusiveControl) {
+            command("ftms:request-control-denied");
+            return respond(ftms.FtmsResult.ControlNotPermitted);
+          }
+          state.otherHasControl = false;
           state.controlGranted = true;
           command("ftms:request-control");
           return respond(ftms.FtmsResult.Success);
@@ -125,16 +158,32 @@ export function createSimulatedTrainer(protocol: ProtocolName, name = defaultNam
           case ftms.FtmsOpCode.SetTargetPower: {
             const watts = v.getInt16(1, true);
             command(`erg:${watts}`, { kind: "erg", watts });
-            return respond(ftms.FtmsResult.Success);
+            respond(ftms.FtmsResult.Success);
+            return status.notify(powerStatus(watts));
           }
           case ftms.FtmsOpCode.SetIndoorBikeSimulation: {
             const grade = v.getInt16(3, true) / 100;
             command(`sim:${grade}`, { kind: "simulation", grade });
-            return respond(ftms.FtmsResult.Success);
+            respond(ftms.FtmsResult.Success);
+            return status.notify([S.IndoorBikeSimulationChanged, ...b.slice(1, 7)]);
           }
           default:
             return respond(ftms.FtmsResult.OpCodeNotSupported);
         }
+      };
+      otherClient.takeControl = ({ reset = true, notify: tell = true } = {}) => {
+        state.otherHasControl = true;
+        state.controlGranted = false;
+        if (reset) state.mode = { kind: "none" };
+        if (tell) status.notify([reset ? S.Reset : S.ControlPermissionLost]);
+      };
+      otherClient.setTargetPower = (watts) => {
+        if (!state.otherHasControl) return;
+        state.mode = { kind: "erg", watts };
+        status.notify(powerStatus(watts));
+      };
+      otherClient.release = () => {
+        state.otherHasControl = false;
       };
       notify = () =>
         data.notify(
@@ -198,7 +247,7 @@ export function createSimulatedTrainer(protocol: ProtocolName, name = defaultNam
     }
   }
 
-  return { protocol, state, device, ...ticker(device, (dt) => (step(dt), notify?.())) };
+  return { protocol, state, device, otherClient, ...ticker(device, (dt) => (step(dt), notify?.())) };
 }
 
 function revolutionEvent(revs: number, perSecond: number, now: number, ticksPerSecond: number) {

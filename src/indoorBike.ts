@@ -2,7 +2,7 @@ import { Emitter } from "./emitter.ts";
 import { HeartRateMonitor } from "./heartRateMonitor.ts";
 import type { ConnectOptions } from "./sensor.ts";
 import { Trainer, type TrainerOptions } from "./trainer.ts";
-import type { BikeData, ConnectionStatus, SimulationParams } from "./types.ts";
+import type { BikeData, ConnectionStatus, SimulationParams, TrainerControl } from "./types.ts";
 
 export type DeviceRole = "trainer" | "heartRateMonitor";
 
@@ -11,6 +11,11 @@ export interface IndoorBikeEvents extends Record<string, unknown> {
   data: Readonly<BikeData>;
   status: { device: DeviceRole; status: ConnectionStatus };
   error: { device: DeviceRole; error: Error };
+  /**
+   * The trainer's control state changed: whether ERG/SIM can be used right now, whether
+   * another app or device (e.g. a watch) holds control, and whether ERG really works.
+   */
+  control: TrainerControl;
 }
 
 /**
@@ -41,6 +46,7 @@ export class IndoorBike extends Emitter<IndoorBikeEvents> {
       sensor.on("status", (status) => this.emit("status", { device: role, status }));
       sensor.on("error", (error) => this.emit("error", { device: role, error }));
     }
+    this.trainer.on("control", (control) => this.emit("control", control));
   }
 
   get data(): Readonly<BikeData> {

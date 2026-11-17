@@ -69,10 +69,24 @@ bike.disconnect();
 
 - `bike.data` always holds the latest merged snapshot, so you can poll it in a game loop instead of using events.
 - `bike.trainer.protocolName`, `.capabilities` (`{ erg, simulation }`), `.powerRange`, `.mode` and `.ergActive` describe the connected trainer.
+  `ergActive` is only true while the trainer really accepted the ERG target. The `control` event
+  (`{ capabilities, controlDenied, ergActive }`, on `bike` and `bike.trainer`) fires whenever that changes, so show
+  ERG in your UI only while it works.
+- The current ERG/SIM mode is sent again every 5 s when nothing else was sent (`refreshInterval`, 0 turns it off).
 - Links that drop unexpectedly are reconnected automatically (`autoReconnect`, `reconnectDelays`), and the last ERG/SIM mode is re-applied.
 - `connectTrainer({ device })` takes an already-known `BluetoothDevice` (e.g. from `navigator.bluetooth.getDevices()`) to reconnect without the chooser.
 - `Trainer` and `HeartRateMonitor` can be used on their own. The `IndoorBike` facade just combines them.
 - Pass `bluetooth` to use something other than `navigator.bluetooth` (for example the `webbluetooth` npm package in Node/Electron, or a mock).
+- **Sharing the trainer with a watch** (e.g. a Garmin paired to the same trainer): both can be connected at the
+  same time and both get the data. FTMS lets only one client control the trainer, though:
+  - Watch first, then the app: if the watch holds control, the trainer still connects (data, read-only) and
+    `controlDenied` is true. Every ERG/SIM command (at most every 5 s) tries to take control; once the trainer gives
+    it, ERG works. Many trainers hand control to whoever asked last, so this usually works at once.
+  - App first, then the watch: when the watch takes control, resets the trainer or sets its own target, the trainer
+    reports it (Fitness Machine Status) and the app takes control back and sends its target again. Trainers that don't
+    report it are caught by the 5 s refresh.
+  - If the trainer refuses (strict FTMS), ERG is not available while the watch holds control: pair the watch to the
+    trainer as a power/speed sensor only, not as a controllable smart trainer.
 - Pass `drivers` to change the protocol order or add your own `ProtocolDriver`. Low-level encoders/decoders are exported as `ftms`, `wahoo`, `fec` and `cyclingPower`.
 
 ## Repository layout
@@ -128,9 +142,21 @@ horde of red zombie dots behind you.
   are from the target and you match it with gears and cadence.
 - The zombies run at the target wattage, you run at your measured power (3 s average). Hold the target and
   they stay behind (and creep a bit closer each step); fall short and they close in. If they catch you, the test ends.
-- Stop pedalling (cadence below 20 rpm, or no data, for 4 s) and the test ends with the result screen:
-  FTP = target of the last fully completed minute × 0.75, plus W/kg, best 1-min power and a power chart.
-- Works with a simulated smart trainer or power meter too (cadence and power sliders, "Stop pedalling" button).
+- **Use ERG mode** is only offered while ERG works with the connected trainer. During the test the HUD shows "ERG"
+  only while the trainer really holds the target; if it stops (e.g. a watch takes control of the trainer) it switches
+  to "match it" until ERG is back.
+- Stop pedalling (cadence below 20 rpm, or no data, for 4 s) during the warm-up and the warm-up pauses until you
+  pedal again. Once the ramp has started, stopping ends the test with the result screen:
+  FTP = target of the last fully completed minute × 0.75, shown with a ±10 % margin (a ramp test can be off by up
+  to about 10 % from a 20-/60-minute test; strong sprinters tend to come out too high, endurance riders too low), plus W/kg,
+  best 1-min power and a chart with tabs for power (with the target), cadence, heart rate and distance.
+- The HUD shows cadence, heart rate and distance while you ride.
+- The result screen also shows average power, cadence and heart rate, distance and work, and lets you download the
+  ride as **.fit** (best) or **.tcx** for Strava, Garmin Connect, TrainingPeaks, intervals.icu and co: an indoor
+  ride with power, cadence, heart rate, speed/distance and one lap per warm-up/ramp step
+  (`demo/zombie-ramp/activity.ts`). No GPX: GPX points need GPS coordinates, which an indoor ride doesn't have.
+- Works with a simulated smart trainer or power meter too (cadence and power sliders, "Stop pedalling" and
+  "Watch takes control" buttons).
 
 > Real-hardware status: the parsers are checked against the published specs (FTMS, Cycling Power,
 > ANT+ FE-C) and the Wahoo encoding follows the open-source implementations (GoldenCheetah and others).

@@ -87,6 +87,10 @@ export interface Sample {
   power: number;
   target: number;
   heartRate?: number;
+  /** rpm */
+  cadence?: number;
+  /** km/h, the trainer's virtual speed */
+  speed?: number;
 }
 
 /** Records 1 Hz samples and evaluates the test. */
@@ -95,11 +99,16 @@ export class RampRecorder {
   constructor(readonly cfg: RampConfig) {}
 
   /** Call often; keeps one sample per whole second. */
-  record(t: number, power: number, heartRate?: number): void {
+  record(t: number, power: number, heartRate?: number, extra: { cadence?: number; speed?: number } = {}): void {
     const sec = Math.floor(t);
     const last = this.samples.at(-1);
     if (last && Math.floor(last.t) === sec) return;
-    this.samples.push({ t: sec, power, target: rampStateAt(this.cfg, sec).target, heartRate });
+    this.samples.push({ t: sec, power, target: rampStateAt(this.cfg, sec).target, heartRate, ...extra });
+  }
+
+  /** Drop samples after `t` (the clock was wound back, e.g. to when a paused warm-up stopped). */
+  truncate(t: number): void {
+    while (this.samples.length && this.samples.at(-1)!.t > t) this.samples.pop();
   }
 
   result(duration: number): RampResult {
@@ -162,6 +171,24 @@ export class StopDetector {
   reset(): void {
     this.lastPedalling = undefined;
   }
+}
+
+/**
+ * Margin to read the FTP with, in watts: ±10 %. A ramp test estimates FTP from a short maximal effort,
+ * so it can be off by up to about 10 % from a 20-/60-minute test (test-day form and the one-minute
+ * steps included). Riders with a strong sprint (anaerobic capacity) tend to get a result that is too high,
+ * endurance riders one that is too low.
+ */
+export function ftpMargin(ftp: number): number {
+  return Math.max(1, Math.round(ftp * 0.1));
+}
+
+/**
+ * What stopping does at test time `t` (when the rider was last seen pedalling): during the warm-up the
+ * test only pauses and goes on when the rider pedals again; once the ramp has started it ends the test.
+ */
+export function onStop(cfg: RampConfig, t: number): "pause" | "finish" {
+  return rampStateAt(cfg, t).phase === "warmup" ? "pause" : "finish";
 }
 
 /**
