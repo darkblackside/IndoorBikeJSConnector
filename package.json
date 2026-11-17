@@ -2,7 +2,7 @@
   "name": "indoor-bike-workspace",
   "version": "0.0.0",
   "private": true,
-  "description": "Indoor bike games: Web Bluetooth trainer connector, shared game core, web frontend and (upcoming) multiplayer server",
+  "description": "Indoor bike games: Web Bluetooth trainer connector, shared game core, web frontend (three.js) and multiplayer server (Colyseus)",
   "type": "module",
   "workspaces": [
     "packages/connector",
@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "npm run dev -w @indoor-bike/web",
     "dev:https": "npm run dev:https -w @indoor-bike/web",
+    "dev:server": "npm run dev -w @indoor-bike/server",
     "build": "npm run build -w indoor-bike-js-connector -w @indoor-bike/game-core -w @indoor-bike/server",
     "build:web": "npm run build -w @indoor-bike/web",
     "test": "vitest run",

@@ -12,11 +12,14 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@colyseus/sdk": "^0.18.10",
     "@indoor-bike/game-core": "*",
-    "indoor-bike-js-connector": "*"
+    "indoor-bike-js-connector": "*",
+    "three": "^0.187.0"
   },
   "devDependencies": {
     "@darkblackside/ui": "^0.1.1",
+    "@types/three": "^0.187.0",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "lit": "^3.3.3",
     "vite": "^8.3.8"

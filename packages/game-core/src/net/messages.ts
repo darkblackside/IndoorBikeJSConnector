@@ -1,78 +1,60 @@
 /**
- * DRAFT of the multiplayer wire protocol (client <-> server over WebSocket). Nothing sends these yet: they are
- * here so the client and the server share one definition from the start. Change freely until the server exists,
- * then bump `PROTOCOL_VERSION` on every incompatible change.
+ * Multiplayer protocol shared by the web client and the Colyseus server (apps/server). Colyseus handles the
+ * transport (WebSocket), rooms, joining/leaving and syncing the room state (see `state.ts`); what is left to
+ * define here is the room name, the join options and the messages clients send.
  *
- * Messages are JSON objects with a `type` discriminator. Times are in milliseconds; distances in metres.
+ * Bump `PROTOCOL_VERSION` on every incompatible change: the server turns away clients with another version.
  */
 export const PROTOCOL_VERSION = 1;
 
-export type PlayerId = string;
-export type RoomId = string;
+/** Room name the server registers and clients join (`client.joinOrCreate(RIDE_ROOM, joinOptions)`). */
+export const RIDE_ROOM = "ride";
 
-/** What a rider's devices report, sent by the client a few times per second. */
-export interface RiderSample {
-  /** Client clock (ms) when the sample was taken. */
-  t: number;
-  power?: number;
-  cadence?: number;
-  heartRate?: number;
-}
+/** Most riders in one room. */
+export const MAX_RIDERS = 8;
 
-export interface PlayerInfo {
-  id: PlayerId;
+/** Options a client passes when joining a ride room. */
+export interface JoinOptions {
+  protocol: number;
   name: string;
   /** Needed for W/kg and speed-from-power. */
   weightKg?: number;
 }
 
-/** Per-player state in a snapshot. */
-export interface PlayerState {
-  id: PlayerId;
-  /** Distance along the shared route. */
-  s: number;
-  /** Power the server uses for this player (smoothed). */
-  power: number;
-  /** Distance to the horde behind this player. */
-  gap: number;
-  out: boolean;
+/** What a rider's devices report; clients send it a few times per second. */
+export interface RiderSample {
+  power?: number;
+  cadence?: number;
+  heartRate?: number;
 }
 
-// --- client -> server -------------------------------------------------------------------
-export type ClientMessage =
-  | { type: "hello"; protocol: number; name: string; weightKg?: number }
-  | { type: "join"; room: RoomId }
-  | { type: "leave" }
-  | { type: "ready"; ready: boolean }
-  | { type: "sample"; sample: RiderSample }
-  | { type: "ping"; t: number };
+/** Client -> server messages (`room.send(type, payload)`), by type. */
+export interface ClientMessages {
+  sample: RiderSample;
+  ready: { ready: boolean };
+}
 
-// --- server -> client -------------------------------------------------------------------
-export type ServerMessage =
-  | { type: "welcome"; protocol: number; you: PlayerId }
-  | { type: "error"; code: "protocol-mismatch" | "room-full" | "bad-message" | "not-in-room"; message: string }
-  | { type: "room"; room: RoomId; players: PlayerInfo[]; ready: PlayerId[] }
-  /** Everyone gets the same `seed`, so every client builds the same city (`CityWorld` with `mulberry32(seed)`). */
-  | { type: "start"; seed: number; startsAt: number }
-  | { type: "snapshot"; tick: number; t: number; players: PlayerState[] }
-  | { type: "finish"; ranking: PlayerId[] }
-  | { type: "pong"; t: number; serverTime: number };
+const MAX_NAME = 24;
 
-export type Message = ClientMessage | ServerMessage;
-
-const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
-
-/**
- * Parses an incoming frame into a message with a string `type`. Only the envelope is checked here; validating
- * each message's fields is the receiver's job (the server must not trust clients).
- */
-export function parseMessage<T extends Message>(data: string): T | undefined {
-  try {
-    const v: unknown = JSON.parse(data);
-    return isObject(v) && typeof v.type === "string" ? (v as unknown as T) : undefined;
-  } catch {
-    return undefined;
+/** Validated join options, or an error message. The server must not trust anything a client sends. */
+export function checkJoinOptions(o: unknown): { ok: true; value: JoinOptions } | { ok: false; error: string } {
+  if (typeof o !== "object" || o === null) return { ok: false, error: "missing join options" };
+  const { protocol, name, weightKg } = o as Record<string, unknown>;
+  if (protocol !== PROTOCOL_VERSION) return { ok: false, error: `protocol ${String(protocol)} != ${PROTOCOL_VERSION}` };
+  if (typeof name !== "string" || !name.trim()) return { ok: false, error: "name required" };
+  if (weightKg !== undefined && !(typeof weightKg === "number" && weightKg >= 20 && weightKg <= 250)) {
+    return { ok: false, error: "weightKg out of range" };
   }
+  return { ok: true, value: { protocol, name: name.trim().slice(0, MAX_NAME), weightKg } };
 }
 
-export const encodeMessage = (m: Message): string => JSON.stringify(m);
+const inRange = (v: unknown, max: number): v is number | undefined =>
+  v === undefined || (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= max);
+
+/** Validated sample (plausible ranges only), or undefined to drop it. */
+export function checkSample(m: unknown): RiderSample | undefined {
+  if (typeof m !== "object" || m === null) return undefined;
+  const { power, cadence, heartRate } = m as Record<string, unknown>;
+  if (!inRange(power, 3000) || !inRange(cadence, 250) || !inRange(heartRate, 250)) return undefined;
+  return { power, cadence, heartRate };
+}

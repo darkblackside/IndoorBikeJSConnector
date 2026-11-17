@@ -2,7 +2,7 @@
   "name": "@indoor-bike/game-core",
   "version": "0.1.0",
   "private": true,
-  "description": "Game rules, simulation and multiplayer message types shared by the web client and the Node server",
+  "description": "Game rules, simulation and the multiplayer (Colyseus) state and messages, shared by the web client and the Node server",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -26,5 +26,8 @@
       "import": "./dist/net/index.js"
     }
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "dependencies": {
+    "@colyseus/schema": "^5.0.49"
+  }
 }

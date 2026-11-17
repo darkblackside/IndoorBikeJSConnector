@@ -5,9 +5,9 @@ Games and training apps for smart trainers in the browser. This repository is an
 | Workspace | Package | What | Runs in |
 | --- | --- | --- | --- |
 | `packages/connector` | `indoor-bike-js-connector` (published) | The Web Bluetooth trainer/HR library: FTMS, Wahoo, Tacx FE-C, Cycling Power, ERG/SIM. No UI, no runtime deps. **[Docs](packages/connector/README.md)** | Browser |
-| `packages/game-core` | `@indoor-bike/game-core` (private) | Game rules and simulation (Zombie Ramp: ramp test, city/horde, .fit/.tcx export) and the multiplayer message types. No DOM, no engine | Browser + Node |
-| `apps/web` | `@indoor-bike/web` (private) | Frontend (Vite): trainer test bench and the [Zombie Ramp](apps/web/ZOMBIE_RAMP.md) game | Browser |
-| `apps/server` | `@indoor-bike/server` (private) | Multiplayer backend (Node, WebSocket). **Placeholder, not implemented yet** ([plan](apps/server/README.md)) | Node |
+| `packages/game-core` | `@indoor-bike/game-core` (private) | Game rules and simulation (Zombie Ramp: ramp test, city/horde, .fit/.tcx export) and the multiplayer protocol: Colyseus room state schema and client messages. No DOM, no engine | Browser + Node |
+| `apps/web` | `@indoor-bike/web` (private) | Frontend (Vite, TypeScript, **three.js**): trainer test bench, the [Zombie Ramp](apps/web/ZOMBIE_RAMP.md) game, the multiplayer client. [Details](apps/web/README.md) | Browser |
+| `apps/server` | `@indoor-bike/server` (private) | Multiplayer backend (Node, TypeScript, **Colyseus** over WebSocket): ride rooms with synced state. No game loop yet. [Details](apps/server/README.md) | Node |
 
 **Try it:** [test bench](https://darkblackside.github.io/IndoorBikeJSConnector/) and the
 [Zombie Ramp](https://darkblackside.github.io/IndoorBikeJSConnector/zombie-ramp/) FTP test game, in Chrome or Edge
@@ -16,12 +16,13 @@ Games and training apps for smart trainers in the browser. This repository is an
 ## Architecture
 
 ```
-            Web Bluetooth                              WebSocket (later)
- trainer ──────────────▶ connector ──▶ apps/web ◀─────────────────────▶ apps/server
- HR strap                (browser)     │  renders, reads input            │  authoritative game loop
-                                       ▼                                  ▼
+            Web Bluetooth                         Colyseus (WebSocket)
+ trainer ──────────────▶ connector ──▶ apps/web ◀────────────────────▶ apps/server
+ HR strap                (browser)     │  three.js: renders           │  rooms, authoritative
+                                       │  sends samples               │  game loop (to come)
+                                       ▼                              ▼
                                   game-core  ◀──── same code ────▶  game-core
-                          (rules, simulation, net message types)
+                    (rules, simulation, room state schema, messages)
 ```
 
 - **connector stays separate.** It knows nothing about games, the web app or the server, and is published on its own.
@@ -29,18 +30,22 @@ Games and training apps for smart trainers in the browser. This repository is an
 - **game-core holds the game, not the screen.** Simulation code (`CityWorld`, `rampStateAt`, `RampRecorder`, …) has no
   DOM access, so the Node server can run exactly the same rules. Its tsconfig has no DOM lib to keep it that way.
   All randomness is injectable: `new CityWorld(mulberry32(seed))` builds the same city on every client.
-- **Rendering is a replaceable layer.** `apps/web/src/zombie-ramp/cityRenderer.ts` draws a `CityWorld` on a 2D canvas
-  and only owns the camera. A game engine (`apps/web/src/engine/`) plugs in the same way: it reads game-core state
-  each frame and renders it, it does not own game state.
-- **Multiplayer contract first.** `@indoor-bike/game-core/net` has the draft client/server messages
-  (`ClientMessage`, `ServerMessage`, `PROTOCOL_VERSION`), shared by both sides from day one.
+- **Rendering is a replaceable layer.** The engine is **three.js**, set up for 2D for now (orthographic camera, world
+  units = metres, `apps/web/src/engine/stage.ts`); 3D can come later on the same scene. Renderers read game-core state
+  each frame, they never own it. The Zombie Ramp still draws with its plain canvas renderer
+  (`apps/web/src/zombie-ramp/cityRenderer.ts`); the dev-only sandbox page (`/sandbox/`) shows the same `CityWorld` in three.js.
+- **Multiplayer via Colyseus.** The room state (`RideState`, Colyseus schema) and the client messages live in
+  `@indoor-bike/game-core/net`, so server and client share one definition. The server owns the state; Colyseus syncs
+  it to every client as binary delta patches. Clients only send their device samples (power, cadence, heart rate).
+- **TypeScript everywhere**, strict, one shared `tsconfig.base.json`.
 
 ### Next steps (not done yet)
 
-1. Pick the frontend engine and add it to `apps/web` (e.g. Phaser for 2D; Babylon.js or three.js for 3D).
-2. Implement `apps/server`: WebSocket server (e.g. `ws`, or Colyseus for rooms/state sync), rooms, a fixed-tick loop
-   running game-core, snapshots to clients. See [apps/server/README.md](apps/server/README.md).
-3. Add a net client in `apps/web` that sends `sample` messages from the connector's `data` events and applies snapshots.
+1. Server: the game loop in `RideRoom` (start when everyone is ready, shared `seed`, fixed tick with game-core rules).
+2. Web: a multiplayer mode for a game: `joinRide()`, send samples from the connector's `data` events, render the
+   other riders from `room.state`.
+3. Move the Zombie Ramp from the canvas renderer to three.js (start from the sandbox).
+4. Hosting for the server (GitHub Pages only serves the static web app); set `VITE_SERVER_URL` for the web build.
 
 ## Development
 
@@ -63,16 +68,18 @@ repository in the package settings (*Manage Actions access*).
 npm install          # installs and links all workspaces
 npm test             # tests of every workspace (Node, no hardware needed)
 npm run typecheck    # every workspace with its own tsconfig
-npm run build        # connector + game-core -> dist/, server -> dist/
+npm run build        # connector, game-core and server -> their dist/
 npm run build:web    # web app -> apps/web/dist (what GitHub Pages serves)
 npm run dev          # web app at http://localhost:5173 (test bench; Zombie Ramp at /zombie-ramp/)
 npm run dev:https    # same over HTTPS on your LAN, for testing from a phone/tablet
+npm run dev:server   # multiplayer server at ws://localhost:8787 (restarts on changes)
 npm run <script> -w <workspace>   # e.g. npm test -w @indoor-bike/game-core
 ```
 
 The web app uses the workspace packages straight from their TypeScript sources (the `indoor-bike-source` export
 condition, set in `apps/web/vite.config.ts` and `tsconfig.base.json`), so editing the connector or game-core
-shows up in `npm run dev` without a build. Node (the server) loads their built `dist/` instead.
+shows up in `npm run dev` and `npm run dev:server` (tsx with the same condition) without a build. The built server
+(`npm start -w @indoor-bike/server`) loads their built `dist/` instead.
 
 The test bench can switch between real Bluetooth and the simulated devices, so ERG/SIM can be tried
 without a trainer.
