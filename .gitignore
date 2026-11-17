@@ -1,4 +1,7 @@
 /node_modules
+/dist
+/demo-dist
 /build
 /certificates
 /.vscode
+*.log
