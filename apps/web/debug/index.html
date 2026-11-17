@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Indoor Bike Debug Bench</title>
+    <meta name="robots" content="noindex" />
+    <!-- Fonts of the gamification theme (@darkblackside/ui); system fonts are the fallback -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@400;600&display=swap" />
+  </head>
+  <body>
+    <main>
+      <bm-page-header>
+        <h1>Debug Bench</h1>
+        <bm-button slot="actions" href="../">Home</bm-button>
+        <span slot="meta">Hidden developer page: manual tests for the <code>indoor-bike-js-connector</code> library (not linked from the app).</span>
+      </bm-page-header>
+
+      <bm-card>
+        <h2 slot="heading">Devices</h2>
+        <div class="stack">
+          <div class="row">
+            <bm-fieldset legend="Source" appearance="bare" orientation="horizontal">
+              <bm-check><input type="radio" name="source" value="real" checked /> Real Bluetooth</bm-check>
+              <bm-check><input type="radio" name="source" value="sim" /> Simulated</bm-check>
+            </bm-fieldset>
+            <bm-field label="Simulated device" size="sm">
+              <select id="sim-protocol" disabled>
+                <option value="ftms">FTMS trainer</option>
+                <option value="wahoo">Wahoo legacy KICKR</option>
+                <option value="tacx-fec">Tacx FE-C</option>
+                <option value="cycling-power">Power meter (read-only)</option>
+              </select>
+            </bm-field>
+          </div>
+          <bm-notice id="bt-support" tone="warning" hidden></bm-notice>
+          <div class="row">
+            <bm-button id="connect-trainer" variant="primary">Connect trainer</bm-button>
+            <span id="trainer-status" class="status">disconnected</span>
+          </div>
+          <div class="row">
+            <bm-button id="connect-hrm" variant="primary">Connect heart rate</bm-button>
+            <span id="hrm-status" class="status">disconnected</span>
+          </div>
+          <div class="row muted" id="sim-controls" hidden>
+            Simulated rider: cadence <input id="sim-cadence" type="range" min="0" max="130" value="90" /> <span id="sim-cadence-v" class="num">90</span> rpm
+            <bm-button id="sim-drop" size="sm">Drop connection</bm-button>
+            <bm-button id="sim-watch" size="sm" title="FTMS only: a watch paired to the same trainer takes control and won't give it back">Watch takes control</bm-button>
+          </div>
+        </div>
+      </bm-card>
+
+      <section class="metrics" aria-label="Live data">
+        <div class="tile"><span class="label">Power</span><span><b id="power" class="num">–</b> W</span></div>
+        <div class="tile"><span class="label">Cadence</span><span><b id="cadence" class="num">–</b> rpm</span></div>
+        <div class="tile"><span class="label">Speed</span><span><b id="speed" class="num">–</b> km/h</span></div>
+        <div class="tile"><span class="label">Heart rate</span><span><b id="heartRate" class="num">–</b> bpm</span></div>
+        <div class="tile"><span class="label">Distance</span><span><b id="distance" class="num">–</b> m</span></div>
+      </section>
+
+      <bm-card>
+        <h2 slot="heading">Control</h2>
+        <bm-tag slot="actions" id="mode" tone="accent" appearance="solid">none</bm-tag>
+        <div class="stack">
+          <div class="row">
+            <strong class="mode-label">ERG</strong>
+            <bm-button size="sm" data-erg-step="-10">−10</bm-button>
+            <bm-field label="Target" size="sm" class="narrow"><input id="erg" type="number" min="0" max="2000" step="5" value="150" /><span slot="end">W</span></bm-field>
+            <bm-button size="sm" data-erg-step="10">+10</bm-button>
+            <bm-button size="sm" variant="primary" id="erg-set">Set W</bm-button>
+          </div>
+          <div class="row">
+            <strong class="mode-label">SIM</strong>
+            <span class="muted">grade</span>
+            <input id="grade" type="range" min="-10" max="20" step="0.5" value="0" aria-label="Grade" />
+            <span><span id="grade-v" class="num">0.0</span> %</span>
+            <bm-field label="Wind" size="sm" class="narrow"><input id="wind" type="number" step="0.5" value="0" /><span slot="end">m/s</span></bm-field>
+          </div>
+          <div class="row">
+            <bm-button id="free-ride">Free ride</bm-button>
+            <bm-field label="Rider weight" size="sm" class="narrow"><input id="weight" type="number" value="75" min="30" max="200" /><span slot="end">kg</span></bm-field>
+          </div>
+          <div class="row" id="spindown-row" hidden>
+            <bm-button id="spindown" title="Calibrate the trainer: speed up, then coast">Spin-down</bm-button>
+            <span id="spindown-status" class="muted"></span>
+          </div>
+        </div>
+      </bm-card>
+
+      <bm-card>
+        <h2 slot="heading">Events</h2>
+        <pre id="log"></pre>
+      </bm-card>
+    </main>
+
+    <script type="module" src="../src/debug/main.ts"></script>
+  </body>
+</html>

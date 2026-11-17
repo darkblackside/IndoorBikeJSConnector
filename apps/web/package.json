@@ -1,0 +1,27 @@
+{
+  "name": "@indoor-bike/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser frontend: trainer test bench and the Zombie Ramp game",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:https": "vite --mode https",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@colyseus/sdk": "^0.18.10",
+    "@indoor-bike/game-core": "*",
+    "indoor-bike-js-connector": "*",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@darkblackside/ui": "^0.1.1",
+    "@types/three": "^0.187.0",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "lit": "^3.3.3",
+    "vite": "^8.3.8"
+  }
+}

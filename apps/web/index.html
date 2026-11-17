@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Indoor Bike Games</title>
+    <!-- Fonts of the gamification theme (@darkblackside/ui); system fonts are the fallback -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@400;600;800&display=swap" />
+  </head>
+  <body>
+    <main>
+      <bm-page-header>
+        <h1>Indoor Bike Games</h1>
+        <span slot="meta">Ride your smart trainer, power meter or heart rate strap in the browser (Chrome or Edge).</span>
+      </bm-page-header>
+
+      <div class="tabs" role="tablist" aria-label="Game modes">
+        <button role="tab" id="tab-offline" aria-controls="panel-offline" data-tab="offline">Offline</button>
+        <button role="tab" id="tab-online" aria-controls="panel-online" data-tab="online">Online</button>
+      </div>
+
+      <section id="panel-offline" role="tabpanel" aria-labelledby="tab-offline" tabindex="0">
+        <p class="muted intro">Single-player games: just you and your trainer, no account or server needed.</p>
+        <div id="offline-games" class="games"></div>
+      </section>
+
+      <section id="panel-online" role="tabpanel" aria-labelledby="tab-online" tabindex="0" hidden>
+        <p class="muted intro">Ride against other people in real time.</p>
+        <div id="online-games" class="games"></div>
+      </section>
+    </main>
+    <script type="module" src="./src/home/main.ts"></script>
+  </body>
+</html>

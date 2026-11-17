@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  // Built against the built game-core (dist), which is what Node loads at runtime.
+  "compilerOptions": {
+    "customConditions": [],
+    "noEmit": false,
+    "allowImportingTsExtensions": false,
+    "rewriteRelativeImportExtensions": true,
+    "sourceMap": true,
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}

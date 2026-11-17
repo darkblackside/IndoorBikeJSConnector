@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Logs npm in to GitHub Packages, so `npm install` / `npm ci` can fetch the private UI library @darkblackside/ui
-// (repository darkblackside/bm-ui-kit), used by the demo pages. Run once per machine, and again when the token expires:
+// (repository darkblackside/bm-ui-kit), used by the web app (apps/web). Run once per machine, and again when the token expires:
 //
 //   npm run login:npm              GitHub CLI token if `gh` is installed, otherwise asks for a classic token
 //   npm run login:npm -- --check   only check the stored token
