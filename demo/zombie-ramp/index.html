@@ -87,7 +87,10 @@
         </div>
       </div>
       <div id="banner" class="banner"></div>
-      <div id="prompt" class="prompt">Start pedalling to begin</div>
+      <div id="prompt" class="prompt">
+        Start pedalling to begin
+        <div class="warn">Don't stop pedalling, or the zombies are going to get you!</div>
+      </div>
       <div class="hud-bottom">
         <bm-button id="mute" size="sm">🔊</bm-button>
         <bm-button id="quit" size="sm" variant="danger">End test</bm-button>
@@ -96,6 +99,7 @@
         <div class="label">Simulated rider</div>
         <div>cadence <input id="sim-cadence" type="range" min="0" max="120" value="90" /> <span id="sim-cadence-v">90</span> rpm</div>
         <div id="sim-power-row">power <input id="sim-power" type="range" min="0" max="600" step="5" value="150" /> <span id="sim-power-v">150</span> W</div>
+        <div>time <input id="sim-speed" type="range" min="1" max="30" value="1" /> <span id="sim-speed-v">1</span>× speed</div>
         <bm-button id="sim-stop" size="sm">Stop pedalling</bm-button>
       </div>
     </div>

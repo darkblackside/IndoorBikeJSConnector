@@ -148,6 +148,13 @@ const setSimPower = (v: number) => {
   if (simTrainer) simTrainer.state.riderPower = v;
 };
 $<HTMLInputElement>("#sim-power").addEventListener("input", (e) => setSimPower(Number((e.target as HTMLInputElement).value)));
+// Fast-forward for testing: how many test seconds pass per real second (simulated trainer only).
+let simSpeed = 1;
+$<HTMLInputElement>("#sim-speed").addEventListener("input", (e) => {
+  simSpeed = Number((e.target as HTMLInputElement).value);
+  $("#sim-speed-v").textContent = String(simSpeed);
+});
+const timeScale = () => (useSim() ? simSpeed : 1);
 
 // --- sound -------------------------------------------------------------------------------
 let audio: AudioContext | undefined;
@@ -178,8 +185,10 @@ let ergMode = false;
 let scene = new CityScene();
 let recorder = new RampRecorder(cfg);
 const stop = new StopDetector();
-let t0 = 0;
+/** Test time in seconds (game clock: runs faster than real time when the simulation is sped up). */
 let elapsed = 0;
+/** Test time when the rider was last seen pedalling; the test ends there, not when the stop was confirmed. */
+let pedalElapsed = 0;
 let gap = START_GAP;
 /** The gap as drawn and shown: `gap` plus a small surge. Only `gap` decides whether they catch you. */
 let shownGap = START_GAP;
@@ -270,7 +279,8 @@ function finish(reason: string) {
 let prev = performance.now() / 1000;
 function frame() {
   const now = performance.now() / 1000;
-  const dt = Math.min(0.1, now - prev);
+  const realDt = now - prev;
+  const dt = Math.min(0.1, realDt);
   prev = now;
   const d = bike.data;
   const p3 = power3s(now);
@@ -286,17 +296,22 @@ function frame() {
     renderHud("Get ready", rampStateAt(cfg, 0), p3);
     if (fresh && stop.isPedalling(d.cadence, d.power)) {
       mode = "riding";
-      t0 = now;
+      elapsed = 0;
+      pedalElapsed = 0;
       stop.reset();
       $("#prompt").hidden = true;
       beep(880, 0.25);
     }
   } else if (mode === "riding") {
-    elapsed = now - t0;
+    const k = timeScale();
+    elapsed += realDt * k;
+    /** Game-time step for the chase physics. */
+    const gdt = dt * k;
     const st = rampStateAt(cfg, elapsed);
     if (st.step !== currentStep) {
       if (ergMode) bike.setTargetPower(st.target);
-      if (st.phase === "warmup") banner(`Warm-up · ${st.target} W`);
+      if (currentStep === -2) banner("Don't stop pedalling!", 4000);
+      else if (st.phase === "warmup") banner(`Warm-up · ${st.target} W`);
       else {
         banner(st.step === 0 ? `Ramp! ${st.target} W` : `${st.target} W · they're getting faster`);
         scene.addZombies(2 + Math.floor(st.step / 2));
@@ -314,23 +329,25 @@ function frame() {
     const vZed = speedFromPower(st.target);
     // Small grace period after each target change while the trainer adjusts.
     const grace = st.elapsed < 4 && vMe < vZed;
-    if (!grace) gap = Math.min(MAX_GAP, gap + (vMe - vZed) * GAP_GAIN * dt);
+    if (!grace) gap = Math.min(MAX_GAP, gap + (vMe - vZed) * GAP_GAIN * gdt);
     // While you hold the target the horde settles at a distance set by your cadence: 50 m at 90 rpm or more,
     // 10 m at 40 rpm. Holding the power never gets you caught, but grinding lets them close in.
     if (d.cadence !== undefined && fresh) {
-      cadenceAvg = cadenceAvg === undefined ? d.cadence : cadenceAvg + (d.cadence - cadenceAvg) * (1 - Math.exp(-dt / CADENCE_SMOOTHING));
+      cadenceAvg = cadenceAvg === undefined ? d.cadence : cadenceAvg + (d.cadence - cadenceAvg) * (1 - Math.exp(-gdt / CADENCE_SMOOTHING));
     }
-    if (vMe >= vZed * 0.99) gap += (restGapForCadence(cadenceAvg ?? 90) - gap) * (1 - Math.exp(-dt * REST_RATE));
+    if (vMe >= vZed * 0.99) gap += (restGapForCadence(cadenceAvg ?? 90) - gap) * (1 - Math.exp(-gdt * REST_RATE));
     // A little action: the horde surges and drops back by up to ~5 m (less when it is very close).
     shownGap = Math.max(0.5, gap + gapSurge(elapsed) * Math.min(1, gap / 20));
-    scene.update(dt, vMe * dt, Math.max(0, shownGap));
+    scene.update(gdt, vMe * gdt, Math.max(0, shownGap));
 
+    const stopped = stop.update(now, d.cadence, d.power, fresh);
+    if (stop.lastPedallingAt === now) pedalElapsed = elapsed;
     if (gap <= 0) finish("The zombies caught you.");
-    else if (stop.update(now, d.cadence, d.power, fresh)) {
+    else if (stopped) {
       // Many trainers go quiet once the flywheel stops, so stale data after low cadence = stopped too.
       const quiet = !fresh && stop.isPedalling(d.cadence, d.power);
       // The test ends when the pedalling stopped, not when the stop was confirmed.
-      elapsed = Math.min(elapsed, (stop.lastPedallingAt ?? now) - t0);
+      elapsed = Math.min(elapsed, pedalElapsed);
       finish(quiet ? "The trainer stopped sending data." : "You stopped pedalling.");
     }
     renderHud(st.phase === "warmup" ? "Warm-up" : `Step ${st.step + 1}`, st, p3);
