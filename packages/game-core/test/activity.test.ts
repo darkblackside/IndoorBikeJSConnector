@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildActivity, encodeFit, encodeTcx, fitCrc } from "../demo/zombie-ramp/activity.ts";
-import { defaultRampConfig, RampRecorder, rampStateAt } from "../demo/zombie-ramp/ramp.ts";
+import { buildActivity, encodeFit, encodeTcx, fitCrc } from "../src/zombie-ramp/activity.ts";
+import { defaultRampConfig, RampRecorder, rampStateAt } from "../src/zombie-ramp/ramp.ts";
 
 const cfg = { ...defaultRampConfig, warmupSeconds: 120, stepSeconds: 60 };
 const start = new Date("2026-11-17T18:00:00Z");

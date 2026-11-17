@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { CityScene, STRAGGLER_SPEED } from "../demo/zombie-ramp/city.ts";
+import { CityWorld, mulberry32, STRAGGLER_SPEED } from "../src/zombie-ramp/city.ts";
 
 describe("Zombie Ramp city: strays the rider passes", () => {
   // The route is random (turns at random corners), so try several cities.
   it.each(Array.from({ length: 20 }, (_, i) => i))("trail the rider, fall back and join the horde without jumping into it (city %i)", () => {
-    const scene = new CityScene();
+    const scene = new CityWorld();
     const gap = 50;
     const speed = 10; // m/s
     const dt = 1 / 60;
@@ -41,5 +41,17 @@ describe("Zombie Ramp city: strays the rider passes", () => {
     for (let i = 0; i < 120; i++) scene.update(dt, speed * dt, gap);
     const slot = scene.route.at(scene.s - gap - z.lag);
     expect(Math.hypot(z.x - slot.x, z.y - slot.y)).toBeLessThan(10);
+  });
+});
+
+describe("Zombie Ramp city: seeded", () => {
+  it("builds the same city and horde from the same seed (for multiplayer)", () => {
+    const run = (seed: number) => {
+      const w = new CityWorld(mulberry32(seed));
+      for (let i = 0; i < 600; i++) w.update(1 / 60, 10 / 60, 40);
+      return { route: w.route.polyline(0, w.s), horde: w.horde.map((z) => [z.x, z.y]), wanderers: w.wanderers.length };
+    };
+    expect(run(7)).toEqual(run(7));
+    expect(run(7)).not.toEqual(run(8));
   });
 });

@@ -1,4 +1,4 @@
-# Publishes the demo pages (test bench + Zombie Ramp) to GitHub Pages on every push to main:
+# Publishes the web app (apps/web) (test bench + Zombie Ramp) to GitHub Pages on every push to main:
 # https://darkblackside.github.io/IndoorBikeJSConnector/ (Zombie Ramp under /zombie-ramp/).
 # One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
 name: Pages
@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          # @darkblackside/ui (demo UI) comes from GitHub Packages (NODE_AUTH_TOKEN at npm ci)
+          # @darkblackside/ui (web UI) comes from GitHub Packages (NODE_AUTH_TOKEN at npm ci)
           registry-url: https://npm.pkg.github.com
           scope: "@darkblackside"
       - run: npm ci
@@ -32,10 +32,10 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npm test
       # Relative asset URLs (vite base "./"), so the pages work under /IndoorBikeJSConnector/.
-      - run: npm run build:demo
+      - run: npm run build:web
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: demo-dist
+          path: apps/web/dist
 
   deploy:
     needs: build

@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.base.json",
+  // No DOM on purpose: this code must also run in the Node server.
+  "compilerOptions": { "types": ["node"] },
+  "include": ["src", "test", "*.config.ts"]
+}

@@ -1,0 +1,25 @@
+{
+  // Shared compiler options. Every workspace has its own tsconfig.json that extends this one and sets
+  // `lib`/`types` for where its code runs (browser, Node, or both).
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // Workspace packages export their TypeScript sources under this condition (see each package.json
+    // "exports"), so the apps use the sources directly without building the packages first.
+    "customConditions": ["indoor-bike-source"],
+    "types": [],
+    "noEmit": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  }
+}

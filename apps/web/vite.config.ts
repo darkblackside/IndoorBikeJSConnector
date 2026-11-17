@@ -1,27 +1,27 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig, defaultClientConditions } from "vite";
 import { fileURLToPath } from "node:url";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 
-// Vite only serves/builds the demo pages (demo/: test bench + Zombie Ramp game). The library itself is
-// compiled with `tsc -p tsconfig.build.json` into dist/.
+// The web frontend: trainer test bench (index.html) and the Zombie Ramp game (zombie-ramp/index.html).
+// The workspace packages (indoor-bike-js-connector, @indoor-bike/game-core) are used from their TypeScript
+// sources through the "indoor-bike-source" export condition, so no package build is needed for dev or build.
 //
 // Web Bluetooth needs a secure context: http://localhost is fine, other devices
 // on the LAN (phone/tablet) need `npm run dev:https` (self-signed certificate).
 const page = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
 export default defineConfig(({ mode }) => ({
-  root: "demo",
   base: "./",
   plugins: mode === "https" ? [basicSsl()] : [],
+  resolve: { conditions: ["indoor-bike-source", ...defaultClientConditions] },
   server: { host: mode === "https" ? true : "localhost" },
   build: {
-    outDir: "../demo-dist",
+    outDir: "dist",
     emptyOutDir: true,
     target: "es2022",
     sourcemap: true,
     rollupOptions: {
-      input: { bench: page("demo/index.html"), zombieRamp: page("demo/zombie-ramp/index.html") },
+      input: { bench: page("index.html"), zombieRamp: page("zombie-ramp/index.html") },
     },
   },
-  test: { root: ".", include: ["test/**/*.test.ts"], environment: "node" },
 }));

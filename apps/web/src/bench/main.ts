@@ -10,14 +10,14 @@ import "@darkblackside/ui/fieldset.js";
 import "@darkblackside/ui/notice.js";
 import "@darkblackside/ui/tag.js";
 import "./style.css";
-import { IndoorBike, type ProtocolName, type SpinDownProgress } from "../src/index.ts";
-import { spinDownText } from "./spinDown.ts";
+import { IndoorBike, type ProtocolName, type SpinDownProgress } from "indoor-bike-js-connector";
+import { spinDownText } from "../common/spinDown.ts";
 import {
   createSimulatedHeartRateMonitor,
   createSimulatedTrainer,
   FakeBluetooth,
   type SimulatedTrainer,
-} from "../testing/index.ts";
+} from "indoor-bike-js-connector/testing";
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 const log = (msg: string) => {

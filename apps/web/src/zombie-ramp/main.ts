@@ -8,18 +8,20 @@ import "@darkblackside/ui/fieldset.js";
 import "@darkblackside/ui/notice.js";
 import "@darkblackside/ui/tag.js";
 import "./style.css";
-import { IndoorBike, type ProtocolName, type SpinDownProgress } from "../../src/index.ts";
-import { spinDownText } from "../spinDown.ts";
+import { IndoorBike, type ProtocolName, type SpinDownProgress } from "indoor-bike-js-connector";
+import { spinDownText } from "../common/spinDown.ts";
 import {
   createSimulatedHeartRateMonitor,
   createSimulatedTrainer,
   FakeBluetooth,
   type SimulatedTrainer,
-} from "../../testing/index.ts";
-import { buildActivity, encodeFit, encodeTcx, trackDistance, type Activity } from "./activity.ts";
-import { CityScene, darkColors } from "./city.ts";
+} from "indoor-bike-js-connector/testing";
 import {
+  buildActivity,
+  CityWorld,
   defaultRampConfig,
+  encodeFit,
+  encodeTcx,
   ftpMargin,
   gapSurge,
   onStop,
@@ -28,9 +30,12 @@ import {
   rampStateAt,
   speedFromPower,
   StopDetector,
+  trackDistance,
+  type Activity,
   type RampConfig,
   type RampResult,
-} from "./ramp.ts";
+} from "@indoor-bike/game-core/zombie-ramp";
+import { CityCanvasRenderer, darkColors } from "./cityRenderer.ts";
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel)!;
 const num = (sel: string, fallback: number) => {
@@ -240,7 +245,8 @@ let ergMode = false;
 /** ERG wanted and the trainer really holds the target right now (it can stop, e.g. when a watch takes control). */
 const ergOn = () => ergMode && bike.trainer.ergActive;
 let ergShown: boolean | undefined;
-let scene = new CityScene();
+let scene = new CityWorld();
+const cityRenderer = new CityCanvasRenderer();
 let recorder = new RampRecorder(cfg);
 const stop = new StopDetector();
 /** Test time in seconds (game clock: runs faster than real time when the simulation is sped up). */
@@ -302,7 +308,8 @@ $("#start").addEventListener("click", () => {
     startWatts: num("#cfg-start", 100),
     stepWatts: Number($<HTMLSelectElement>("#cfg-step").value),
   };
-  scene = new CityScene();
+  scene = new CityWorld();
+  cityRenderer.reset();
   recorder = new RampRecorder(cfg);
   gap = START_GAP;
   shownGap = START_GAP;
@@ -367,7 +374,8 @@ $("#again").addEventListener("click", backToSetup);
 function backToSetup() {
   mode = "setup";
   allowScreenOff();
-  scene = new CityScene();
+  scene = new CityWorld();
+  cityRenderer.reset();
   $("#result").hidden = true;
   $("#hud").hidden = true;
   $("#setup").hidden = false;
@@ -530,7 +538,7 @@ function draw() {
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const danger = mode === "riding" ? Math.max(0, Math.min(1, (25 - gap) / 25)) : 0;
-  scene.draw(ctx, w, h, darkColors, danger);
+  cityRenderer.draw(ctx, scene, w, h, darkColors, danger);
 }
 
 // --- result ----------------------------------------------------------------------------

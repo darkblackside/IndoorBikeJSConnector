@@ -1,4 +1,4 @@
-import type { SpinDownProgress } from "../src/index.ts";
+import type { SpinDownProgress } from "indoor-bike-js-connector";
 
 /** What to tell the rider during a spin-down calibration (shared by the demo pages). */
 export function spinDownText(p: SpinDownProgress, speed: number | undefined): string {

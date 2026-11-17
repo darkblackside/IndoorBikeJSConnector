@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  // Node only: no DOM. NodeNext so the emitted JavaScript runs in Node as is.
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"]
+  },
+  "include": ["src", "test"]
+}

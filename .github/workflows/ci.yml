@@ -12,7 +12,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          # @darkblackside/ui (demo UI) comes from GitHub Packages (NODE_AUTH_TOKEN at npm ci)
+          # @darkblackside/ui (web UI) comes from GitHub Packages (NODE_AUTH_TOKEN at npm ci)
           registry-url: https://npm.pkg.github.com
           scope: "@darkblackside"
       - run: npm ci
@@ -21,4 +21,4 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - run: npm run build:demo
+      - run: npm run build:web

@@ -1,35 +1,7 @@
 {
-  "compilerOptions": {
-    "target": "ES2023",
-    "lib": [
-      "ES2023",
-      "DOM",
-      "DOM.Iterable"
-    ],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "types": [
-      "web-bluetooth",
-      "vite/client",
-      "node"
-    ],
-    "noEmit": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "allowImportingTsExtensions": true,
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitOverride": true,
-    "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true
-  },
-  "include": [
-    "src",
-    "testing",
-    "test",
-    "demo",
-    "*.config.ts"
-  ]
+  // Root config only for the root-level tool configs. Each workspace is checked with its own tsconfig
+  // (`npm run typecheck` runs them all).
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "types": ["node"] },
+  "include": ["*.config.ts", "scripts"]
 }

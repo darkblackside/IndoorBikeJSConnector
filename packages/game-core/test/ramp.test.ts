@@ -10,7 +10,7 @@ import {
   restGapForCadence,
   speedFromPower,
   StopDetector,
-} from "../demo/zombie-ramp/ramp.ts";
+} from "../src/zombie-ramp/ramp.ts";
 
 const cfg = { ...defaultRampConfig, warmupSeconds: 300, warmupWatts: 100, startWatts: 100, stepWatts: 25 };
 

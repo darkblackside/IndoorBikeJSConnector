@@ -1,11 +1,15 @@
 /**
  * Top-down city grid: the rider drives along streets, turning at intersections,
  * and a horde of zombies follows the same route. Units are metres.
+ *
+ * Simulation only: no DOM, no canvas, no engine. It runs in the browser and in Node (the future multiplayer
+ * server), and a renderer (canvas today, a game engine later) only reads its state. All randomness goes through
+ * the injected `rand`, so a seeded generator (see `mulberry32`) makes a city reproducible on every client.
  */
 export const BLOCK = 70; // distance between street centre lines
-const STREET = 14; // street width
+export const STREET = 14; // street width
 
-interface Pt {
+export interface Pt {
   x: number;
   y: number;
 }
@@ -76,7 +80,7 @@ export class Route {
 /** How fast a picked-up stray follows the rider, relative to the rider's speed: it drops back to the horde. */
 export const STRAGGLER_SPEED = 0.7;
 
-interface Zombie {
+export interface Zombie {
   /** How far behind the horde's front it runs (for a straggler: where it will join). */
   lag: number;
   /**
@@ -93,7 +97,7 @@ interface Zombie {
   y: number;
 }
 
-interface Wanderer {
+export interface Wanderer {
   x: number;
   y: number;
   dx: number;
@@ -101,31 +105,14 @@ interface Wanderer {
   phase: number;
 }
 
-const hash = (a: number, b: number) => {
+/** Deterministic 0..1 hash of two integers (e.g. which buildings stand on a block). */
+export const hash = (a: number, b: number) => {
   let h = (a * 374761393 + b * 668265263) | 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 };
 
-export interface Colors {
-  ground: string;
-  street: string;
-  building: string[];
-  route: string;
-  player: string;
-  zombie: string;
-}
-
-export const darkColors: Colors = {
-  ground: "#0d1014",
-  street: "#232a33",
-  building: ["#151a20", "#181e25", "#1b222a", "#12161b"],
-  route: "rgba(64, 224, 208, 0.22)",
-  player: "#40e0d0",
-  zombie: "#ff3b3b",
-};
-
-export class CityScene {
+export class CityWorld {
   readonly route: Route;
   /** Rider's distance along the route. */
   s = 300;
@@ -133,15 +120,11 @@ export class CityScene {
   gap = 50;
   horde: Zombie[] = [];
   wanderers: Wanderer[] = [];
-  private time = 0;
-  private camX = 0;
-  private camY = 0;
+  /** Seconds simulated so far (drives the zombies' sway; renderers use it for animation). */
+  time = 0;
 
-  constructor(rand: () => number = Math.random) {
+  constructor(private readonly rand: () => number = Math.random) {
     this.route = new Route(rand);
-    const p = this.route.at(this.s);
-    this.camX = p.x;
-    this.camY = p.y;
     this.addZombies(4);
   }
 
@@ -149,11 +132,11 @@ export class CityScene {
     const behind = this.route.at(this.s - this.gap - 40);
     for (let i = 0; i < n; i++) {
       this.horde.push({
-        lag: Math.random() * Math.min(10 + this.horde.length * 1.5, 70),
-        side: (Math.random() - 0.5) * (STREET - 4),
-        phase: Math.random() * Math.PI * 2,
-        x: behind.x + (Math.random() - 0.5) * 20,
-        y: behind.y + (Math.random() - 0.5) * 20,
+        lag: this.rand() * Math.min(10 + this.horde.length * 1.5, 70),
+        side: (this.rand() - 0.5) * (STREET - 4),
+        phase: this.rand() * Math.PI * 2,
+        x: behind.x + (this.rand() - 0.5) * 20,
+        y: behind.y + (this.rand() - 0.5) * 20,
       });
     }
   }
@@ -220,9 +203,9 @@ export class CityScene {
       const ahead = (w.x - me.x) * me.dx + (w.y - me.y) * me.dy;
       if (d < 22 && ahead <= 2) {
         this.horde.push({
-          lag: 10 + Math.random() * 40,
+          lag: 10 + this.rand() * 40,
           s: this.s + Math.min(0, ahead),
-          side: (Math.random() - 0.5) * 10,
+          side: (this.rand() - 0.5) * 10,
           phase: w.phase,
           x: w.x,
           y: w.y,
@@ -232,21 +215,21 @@ export class CityScene {
       return d < 260;
     });
     while (this.wanderers.length < 14) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 140 + Math.random() * 100;
-      const horizontal = Math.random() < 0.5;
+      const a = this.rand() * Math.PI * 2;
+      const r = 140 + this.rand() * 100;
+      const horizontal = this.rand() < 0.5;
       let x = me.x + Math.cos(a) * r;
       let y = me.y + Math.sin(a) * r;
-      if (horizontal) y = Math.round(y / BLOCK) * BLOCK + (Math.random() - 0.5) * 8;
-      else x = Math.round(x / BLOCK) * BLOCK + (Math.random() - 0.5) * 8;
-      const sp = 0.6 + Math.random() * 0.8;
-      const sign = Math.random() < 0.5 ? -1 : 1;
-      this.wanderers.push({ x, y, dx: horizontal ? sign * sp : 0, dy: horizontal ? 0 : sign * sp, phase: Math.random() * 6 });
+      if (horizontal) y = Math.round(y / BLOCK) * BLOCK + (this.rand() - 0.5) * 8;
+      else x = Math.round(x / BLOCK) * BLOCK + (this.rand() - 0.5) * 8;
+      const sp = 0.6 + this.rand() * 0.8;
+      const sign = this.rand() < 0.5 ? -1 : 1;
+      this.wanderers.push({ x, y, dx: horizontal ? sign * sp : 0, dy: horizontal ? 0 : sign * sp, phase: this.rand() * 6 });
     }
     for (const w of this.wanderers) {
       // Shamble along the street; now and then turn towards the rider.
       const away = w.dx * (me.x - w.x) + w.dy * (me.y - w.y) < 0;
-      if (away && Math.random() < dt * 0.3) {
+      if (away && this.rand() < dt * 0.3) {
         w.dx = -w.dx;
         w.dy = -w.dy;
       }
@@ -254,109 +237,15 @@ export class CityScene {
       w.y += w.dy * dt;
     }
   }
+}
 
-  draw(ctx: CanvasRenderingContext2D, w: number, h: number, c: Colors, danger: number): void {
-    const me = this.route.at(this.s);
-    // Camera looks a little ahead, smoothed so corners don't jerk the view.
-    const scale = Math.min(w, h) / 230;
-    const lookX = me.x + me.dx * 25;
-    const lookY = me.y + me.dy * 25;
-    const k = 0.08;
-    this.camX += (lookX - this.camX) * k;
-    this.camY += (lookY - this.camY) * k;
-
-    ctx.save();
-    ctx.fillStyle = c.ground;
-    ctx.fillRect(0, 0, w, h);
-    ctx.translate(w / 2, h / 2);
-    ctx.scale(scale, scale);
-    ctx.translate(-this.camX, -this.camY);
-
-    // Blocks and streets
-    const halfW = w / 2 / scale + BLOCK;
-    const halfH = h / 2 / scale + BLOCK;
-    const x0 = Math.floor((this.camX - halfW) / BLOCK);
-    const x1 = Math.ceil((this.camX + halfW) / BLOCK);
-    const y0 = Math.floor((this.camY - halfH) / BLOCK);
-    const y1 = Math.ceil((this.camY + halfH) / BLOCK);
-    ctx.fillStyle = c.street;
-    ctx.fillRect(x0 * BLOCK, y0 * BLOCK, (x1 - x0) * BLOCK, (y1 - y0) * BLOCK);
-    const inset = STREET / 2;
-    for (let i = x0; i < x1; i++) {
-      for (let j = y0; j < y1; j++) {
-        const bx = i * BLOCK + inset;
-        const by = j * BLOCK + inset;
-        const size = BLOCK - STREET;
-        // A few buildings per block
-        const split = hash(i, j);
-        ctx.fillStyle = c.building[Math.floor(split * c.building.length)]!;
-        if (split < 0.35) {
-          ctx.fillRect(bx, by, size, size);
-        } else if (split < 0.7) {
-          const m = size * (0.35 + hash(j, i) * 0.3);
-          ctx.fillRect(bx, by, m - 1.5, size);
-          ctx.fillStyle = c.building[Math.floor(hash(i + 7, j) * c.building.length)]!;
-          ctx.fillRect(bx + m + 1.5, by, size - m - 1.5, size);
-        } else {
-          const half = size / 2;
-          for (let q = 0; q < 4; q++) {
-            ctx.fillStyle = c.building[Math.floor(hash(i * 4 + q, j) * c.building.length)]!;
-            ctx.fillRect(bx + (q % 2) * (half + 1.5), by + Math.floor(q / 2) * (half + 1.5), half - 1.5, half - 1.5);
-          }
-        }
-      }
-    }
-
-    // Route ahead (where you'll turn) and trail behind
-    const line = (pts: Pt[], style: string | CanvasGradient, width: number, dash: number[] = []) => {
-      ctx.beginPath();
-      ctx.moveTo(pts[0]!.x, pts[0]!.y);
-      for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y);
-      ctx.strokeStyle = style;
-      ctx.lineWidth = width;
-      ctx.setLineDash(dash);
-      ctx.lineJoin = "round";
-      ctx.lineCap = "round";
-      ctx.stroke();
-      ctx.setLineDash([]);
-    };
-    line(this.route.polyline(this.s, this.s + 220), c.route, 2.2, [4, 4]);
-    line(this.route.polyline(this.s - 45, this.s), "rgba(64,224,208,0.45)", 1.8);
-
-    // Wanderers
-    for (const z of this.wanderers) this.dot(ctx, z.x, z.y, 1.7, c.zombie, 0.55);
-    // Horde
-    for (const z of this.horde) this.dot(ctx, z.x, z.y, 2, c.zombie, 0.95, 6);
-
-    // Player
-    const pulse = 1 + Math.sin(this.time * 6) * 0.08;
-    ctx.shadowColor = c.player;
-    ctx.shadowBlur = 18;
-    this.dot(ctx, me.x, me.y, 3 * pulse, c.player, 1);
-    ctx.shadowBlur = 0;
-    ctx.restore();
-
-    // Red vignette when the horde is close
-    if (danger > 0) {
-      const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75);
-      g.addColorStop(0, "rgba(255,0,0,0)");
-      g.addColorStop(1, `rgba(255,30,30,${(0.15 + 0.25 * Math.abs(Math.sin(this.time * 5))) * danger})`);
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
-    }
-  }
-
-  private dot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string, alpha: number, glow = 0): void {
-    ctx.globalAlpha = alpha;
-    if (glow) {
-      ctx.shadowColor = color;
-      ctx.shadowBlur = glow;
-    }
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-    if (glow) ctx.shadowBlur = 0;
-    ctx.globalAlpha = 1;
-  }
+/** Small seeded PRNG (0..1), for reproducible cities: the same seed gives the same route and horde everywhere. */
+export function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
