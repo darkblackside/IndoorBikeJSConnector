@@ -212,7 +212,27 @@ function banner(text: string, ms = 2500) {
   bannerTimer = setTimeout(() => el.classList.remove("show"), ms);
 }
 
+// --- screen wake lock: keep the screen on during the game (phones/tablets lock it otherwise) ---
+let wakeLock: WakeLockSentinel | undefined;
+async function keepScreenOn() {
+  if (!("wakeLock" in navigator) || document.visibilityState !== "visible" || (wakeLock && !wakeLock.released)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+  } catch {
+    // Not allowed (e.g. battery saver): the game still works, the screen may just turn off.
+  }
+}
+function allowScreenOff() {
+  void wakeLock?.release();
+  wakeLock = undefined;
+}
+// The browser drops the lock whenever the page is hidden: take it again when the rider comes back.
+document.addEventListener("visibilitychange", () => {
+  if (mode === "waiting" || mode === "riding") void keepScreenOn();
+});
+
 $("#start").addEventListener("click", () => {
+  void keepScreenOn();
   audio ??= new AudioContext();
   void audio.resume();
   cfg = {
@@ -258,6 +278,7 @@ $("#again").addEventListener("click", backToSetup);
 
 function backToSetup() {
   mode = "setup";
+  allowScreenOff();
   scene = new CityScene();
   $("#result").hidden = true;
   $("#hud").hidden = true;
@@ -268,6 +289,7 @@ function backToSetup() {
 
 function finish(reason: string) {
   mode = "done";
+  allowScreenOff();
   // ERG: drop to an easy flat-road spin for the cool-down. Read-only: leave the trainer alone.
   if (ergMode && bike.trainer.status === "connected") bike.freeRide();
   if (useSim()) setSimCadence(0);
@@ -327,8 +349,11 @@ function frame() {
     recorder.record(elapsed, d.power ?? 0, d.heartRate);
     const vMe = speedFromPower(power);
     const vZed = speedFromPower(st.target);
-    // Small grace period after each target change while the trainer adjusts.
-    const grace = st.elapsed < 4 && vMe < vZed;
+    // Grace period after each target change while the power catches up: 4 s in ERG (the trainer adjusts, plus the
+    // 3 s power average), 10 s without ERG (the rider has to notice the new target, shift and spin up).
+    // Real seconds, not game seconds: the lag is real time even when the simulation is sped up.
+    const graceSeconds = ergMode ? 4 : 10;
+    const grace = st.elapsed < graceSeconds * k && vMe < vZed;
     if (!grace) gap = Math.min(MAX_GAP, gap + (vMe - vZed) * GAP_GAIN * gdt);
     // While you hold the target the horde settles at a distance set by your cadence: 50 m at 90 rpm or more,
     // 10 m at 40 rpm. Holding the power never gets you caught, but grinding lets them close in.

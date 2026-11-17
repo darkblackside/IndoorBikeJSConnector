@@ -1,10 +1,10 @@
-# Publishes the demo pages (test bench + Zombie Ramp) to GitHub Pages on every push to master:
+# Publishes the demo pages (test bench + Zombie Ramp) to GitHub Pages on every push to main:
 # https://darkblackside.github.io/IndoorBikeJSConnector/ (Zombie Ramp under /zombie-ramp/).
 # One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
 name: Pages
 on:
   push:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
 
 # One deployment at a time; a newer push replaces a queued one, a running deployment finishes.
