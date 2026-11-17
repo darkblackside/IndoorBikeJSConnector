@@ -5,6 +5,10 @@ heart rate straps over **Web Bluetooth**, so you can build games and training ap
 It auto-detects the trainer's protocol and gives you one API for live data and resistance control,
 in either **ERG** (hold a target wattage) or **SIM** (road grade/wind) mode.
 
+**Try it:** [test bench](https://darkblackside.github.io/IndoorBikeJSConnector/) and the
+[Zombie Ramp](https://darkblackside.github.io/IndoorBikeJSConnector/zombie-ramp/) FTP test game, in Chrome or Edge
+(both also run with simulated devices). Deployed from `master` by `.github/workflows/pages.yml`.
+
 | Protocol | Devices | Data | ERG | SIM |
 | --- | --- | :-: | :-: | :-: |
 | **FTMS** (Fitness Machine Service) | Current Wahoo KICKR/CORE/SNAP, Tacx/Garmin, Elite, Saris, JetBlack, Zwift Hub, Wattbike… | ✓ | ✓ | ✓ |
