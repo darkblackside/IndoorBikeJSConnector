@@ -82,6 +82,7 @@
         <div class="card stats">
           <div><span class="label">Cadence</span><b id="cadence">–</b> rpm</div>
           <div><span class="label">Heart rate</span><b id="hr">–</b> bpm</div>
+          <div><span class="label">Distance</span><b id="distance">–</b> km</div>
           <div><span class="label">Zombies</span><b id="gap">–</b> m behind</div>
           <div><span class="label">Horde</span><b id="horde">–</b></div>
         </div>
@@ -109,10 +110,17 @@
     <section id="result" class="panel" hidden>
       <div id="result-reason" class="muted"></div>
       <h1>Your FTP</h1>
-      <div class="ftp"><b id="ftp">–</b><span class="unit">W</span></div>
+      <div class="ftp"><b id="ftp">–</b><span class="unit">W</span><span id="ftp-margin" class="margin"></span></div>
       <div id="wkg" class="muted"></div>
       <div id="ftp-note" class="muted small"></div>
-      <canvas id="chart" height="180"></canvas>
+      <div class="tabs" role="tablist" aria-label="Chart">
+        <button role="tab" data-metric="power" aria-selected="true">Power</button>
+        <button role="tab" data-metric="cadence" aria-selected="false">Cadence</button>
+        <button role="tab" data-metric="heartRate" aria-selected="false">Heart rate</button>
+        <button role="tab" data-metric="distance" aria-selected="false">Distance</button>
+      </div>
+      <canvas id="chart" height="180" role="tabpanel" aria-label="Power chart"></canvas>
+      <div id="chart-empty" class="muted small" hidden></div>
       <div class="facts">
         <div><span class="label">Last full step</span><b id="r-last">–</b></div>
         <div><span class="label">Steps completed</span><b id="r-steps">–</b></div>

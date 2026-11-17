@@ -15,10 +15,11 @@ import {
   FakeBluetooth,
   type SimulatedTrainer,
 } from "../../testing/index.ts";
-import { buildActivity, encodeFit, encodeTcx, type Activity } from "./activity.ts";
+import { buildActivity, encodeFit, encodeTcx, trackDistance, type Activity } from "./activity.ts";
 import { CityScene, darkColors } from "./city.ts";
 import {
   defaultRampConfig,
+  ftpMargin,
   gapSurge,
   onStop,
   RampRecorder,
@@ -482,6 +483,7 @@ function renderHud(label: string, st: ReturnType<typeof rampStateAt>, p3: number
   }
   $("#cadence").textContent = d.cadence === undefined ? "–" : String(Math.round(d.cadence));
   $("#hr").textContent = d.heartRate === undefined ? "–" : String(d.heartRate);
+  $("#distance").textContent = (trackDistance(recorder.samples) / 1000).toFixed(2);
   $("#gap").textContent = String(Math.max(0, Math.round(shownGap)));
   $("#gap").style.color = shownGap < 20 ? "var(--zed)" : "";
   $("#horde").textContent = String(scene.horde.length);
@@ -536,9 +538,13 @@ function showResult(r: RampResult, reason: string) {
   $("#ftp").textContent = r.ftp === undefined ? "–" : String(r.ftp);
   const weight = $<HTMLInputElement>("#cfg-weight").valueAsNumber;
   $("#wkg").textContent = r.ftp !== undefined && weight > 0 ? `${(r.ftp / weight).toFixed(2)} W/kg` : "";
+  const margin = r.ftp === undefined ? undefined : ftpMargin(r.ftp);
+  $("#ftp-margin").textContent = margin === undefined ? "" : `± ${margin} W`;
   $("#ftp-note").textContent =
     r.ftp !== undefined
-      ? `${r.lastStepWatts} W (last full minute) × ${cfg.ftpFactor} = ${r.ftp} W`
+      ? `${r.lastStepWatts} W (last full minute) × ${cfg.ftpFactor} = ${r.ftp} W, likely between ${r.ftp - margin!} and ${r.ftp + margin!} W. ` +
+        "A ramp test is usually within about ±5 % of a 20- or 60-minute test. Strong sprinters tend to get a result " +
+        "that's too high, endurance riders one that's too low. Compare tests on the same trainer for the best trend."
       : r.endedInWarmup
         ? "The test ended during the warm-up, so there's no FTP yet."
         : "No ramp step was completed, so there's no FTP yet.";
@@ -562,6 +568,43 @@ function showResult(r: RampResult, reason: string) {
   drawChart();
 }
 
+type Metric = "power" | "cadence" | "heartRate" | "distance";
+let chartMetric: Metric = "power";
+const METRICS: Record<Metric, { label: string; step: number; scale: number; empty: string }> = {
+  power: { label: "Power", step: 100, scale: 1, empty: "No power recorded." },
+  cadence: { label: "Cadence", step: 20, scale: 1, empty: "This device didn't report a cadence." },
+  heartRate: { label: "Heart rate", step: 20, scale: 1, empty: "No heart rate recorded (connect a heart rate strap or watch)." },
+  distance: { label: "Distance", step: 1, scale: 1 / 1000, empty: "No distance recorded." },
+};
+
+// Tabs above the chart: power (with the target), cadence, heart rate or distance.
+const tabs = [...document.querySelectorAll<HTMLButtonElement>(".tabs [role=tab]")];
+function selectMetric(metric: Metric, focus = false) {
+  chartMetric = metric;
+  for (const t of tabs) {
+    const on = t.dataset.metric === metric;
+    t.setAttribute("aria-selected", String(on));
+    t.tabIndex = on ? 0 : -1;
+    if (on && focus) t.focus();
+  }
+  $("#chart").setAttribute("aria-label", `${METRICS[metric].label} chart`);
+  drawChart();
+}
+for (const t of tabs) {
+  t.addEventListener("click", () => selectMetric(t.dataset.metric as Metric));
+  t.addEventListener("keydown", (e) => {
+    const i = tabs.indexOf(t);
+    const next = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : undefined;
+    if (next === undefined) return;
+    e.preventDefault();
+    selectMetric(tabs[(next + tabs.length) % tabs.length]!.dataset.metric as Metric, true);
+  });
+}
+selectMetric("power");
+window.addEventListener("resize", () => {
+  if (mode === "done") drawChart();
+});
+
 function drawChart() {
   const c = $<HTMLCanvasElement>("#chart");
   const dpr = window.devicePixelRatio || 1;
@@ -572,36 +615,57 @@ function drawChart() {
   const g = c.getContext("2d")!;
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
-  const s = recorder.samples;
-  if (s.length < 2) return;
-  const tMax = s.at(-1)!.t || 1;
-  const pMax = Math.max(...s.map((x) => Math.max(x.power, x.target))) * 1.1 || 1;
+  const points = activity?.points ?? [];
+  const m = METRICS[chartMetric];
+  const value = (p: (typeof points)[number]) => {
+    const v = p[chartMetric];
+    return v === undefined || (chartMetric === "cadence" && v === 0 && p.power === 0) ? undefined : v * m.scale;
+  };
+  const values = points.map(value).filter((v): v is number => v !== undefined);
+  const empty = $("#chart-empty");
+  empty.hidden = points.length < 2 || values.length > 0;
+  empty.textContent = m.empty;
+  if (points.length < 2 || !values.length) return;
+
+  const targets = chartMetric === "power" ? points.map((p) => rampStateAt(cfg, p.t).target) : [];
+  const vMax = Math.max(...values, ...targets) * 1.1 || 1;
+  // Heart rate lives far from zero: start the axis just below the lowest value so the curve is readable.
+  const vMin = chartMetric === "heartRate" ? Math.max(0, Math.floor((Math.min(...values) - 10) / m.step) * m.step) : 0;
+  const tMax = points.at(-1)!.t || 1;
   const X = (t: number) => 30 + (t / tMax) * (w - 36);
-  const Y = (p: number) => h - 18 - (p / pMax) * (h - 28);
+  const Y = (v: number) => h - 18 - ((v - vMin) / (vMax - vMin)) * (h - 28);
   g.font = "11px system-ui";
   g.fillStyle = "#93a0ad";
   g.strokeStyle = "#2a323c";
   g.lineWidth = 1;
-  for (let p = 0; p < pMax; p += 100) {
+  const step = chartMetric === "distance" && vMax > 8 ? Math.ceil(vMax / 5) : m.step;
+  for (let v = vMin; v < vMax; v += step) {
     g.beginPath();
-    g.moveTo(30, Y(p));
-    g.lineTo(w, Y(p));
+    g.moveTo(30, Y(v));
+    g.lineTo(w, Y(v));
     g.stroke();
-    g.fillText(String(p), 0, Y(p) + 4);
+    g.fillText(String(v), 0, Y(v) + 4);
   }
   if (cfg.warmupSeconds > 0 && tMax > cfg.warmupSeconds) {
     g.fillText("warm-up", X(cfg.warmupSeconds / 2) - 20, h - 4);
     g.fillText("ramp", X((cfg.warmupSeconds + tMax) / 2) - 12, h - 4);
   }
-  const plot = (key: "power" | "target", color: string, width: number) => {
+  /** Draw a line; gaps (no value) break it. */
+  const plot = (ys: (number | undefined)[], color: string, width: number) => {
     g.beginPath();
-    s.forEach((x, i) => (i ? g.lineTo(X(x.t), Y(x[key])) : g.moveTo(X(x.t), Y(x[key]))));
+    let pen = false;
+    ys.forEach((y, i) => {
+      if (y === undefined) return void (pen = false);
+      if (pen) g.lineTo(X(points[i]!.t), Y(y));
+      else g.moveTo(X(points[i]!.t), Y(y));
+      pen = true;
+    });
     g.strokeStyle = color;
     g.lineWidth = width;
     g.stroke();
   };
-  plot("target", "#ff3b3b", 2);
-  plot("power", "#40e0d0", 1.5);
+  if (targets.length) plot(targets, "#ff3b3b", 2);
+  plot(points.map(value), chartMetric === "heartRate" ? "#ff7ab6" : "#40e0d0", 1.5);
 }
 
 requestAnimationFrame(frame);

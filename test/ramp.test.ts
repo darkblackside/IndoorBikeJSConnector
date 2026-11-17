@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   completedSteps,
   defaultRampConfig,
+  ftpMargin,
   gapSurge,
   onStop,
   RampRecorder,
@@ -56,6 +57,12 @@ describe("ramp FTP test", () => {
     rec.record(16.9, 100); // same second: not recorded twice
     rec.record(17.2, 100);
     expect(rec.samples.map((s) => s.t).slice(-3)).toEqual([15, 16, 17]);
+  });
+
+  it("gives the FTP a margin of about ±5 %", () => {
+    expect(ftpMargin(281)).toBe(14);
+    expect(ftpMargin(200)).toBe(10);
+    expect(ftpMargin(10)).toBe(1);
   });
 
   it("detects that the rider stopped pedalling", () => {

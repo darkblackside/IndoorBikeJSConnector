@@ -57,6 +57,16 @@ export interface Activity {
   summary: ActivitySummary;
 }
 
+/** Speed of a sample in m/s: the trainer's, or from the power (flat-road physics) when it reports none. */
+export const sampleSpeed = (s: Sample): number => (s.speed !== undefined ? s.speed / 3.6 : speedFromPower(s.power));
+
+/** Metres ridden over the samples, the same way the exported activity counts them. */
+export function trackDistance(samples: readonly Sample[]): number {
+  let d = 0;
+  for (let i = 1; i < samples.length; i++) d += sampleSpeed(samples[i]!) * (samples[i]!.t - samples[i - 1]!.t);
+  return d;
+}
+
 /**
  * Build the activity from the 1 Hz samples. Speed comes from the trainer when it reports one,
  * otherwise from the power (flat-road physics), so the activity has a plausible distance.
@@ -64,7 +74,7 @@ export interface Activity {
 export function buildActivity(samples: readonly Sample[], cfg: RampConfig, start: Date, duration?: number): Activity {
   let distance = 0;
   const points: ActivityPoint[] = samples.map((s, i) => {
-    const speed = s.speed !== undefined ? s.speed / 3.6 : speedFromPower(s.power);
+    const speed = sampleSpeed(s);
     const dt = i === 0 ? 0 : s.t - samples[i - 1]!.t;
     distance += speed * dt;
     return { t: s.t, power: s.power, heartRate: s.heartRate, cadence: s.cadence, speed, distance };
