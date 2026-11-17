@@ -543,7 +543,7 @@ function showResult(r: RampResult, reason: string) {
   $("#ftp-note").textContent =
     r.ftp !== undefined
       ? `${r.lastStepWatts} W (last full minute) × ${cfg.ftpFactor} = ${r.ftp} W, likely between ${r.ftp - margin!} and ${r.ftp + margin!} W. ` +
-        "A ramp test is usually within about ±5 % of a 20- or 60-minute test. Strong sprinters tend to get a result " +
+        "A ramp test can be off by up to about 10 % from a 20- or 60-minute test. Strong sprinters tend to get a result " +
         "that's too high, endurance riders one that's too low. Compare tests on the same trainer for the best trend."
       : r.endedInWarmup
         ? "The test ended during the warm-up, so there's no FTP yet."

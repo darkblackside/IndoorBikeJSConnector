@@ -59,10 +59,10 @@ describe("ramp FTP test", () => {
     expect(rec.samples.map((s) => s.t).slice(-3)).toEqual([15, 16, 17]);
   });
 
-  it("gives the FTP a margin of about ±5 %", () => {
-    expect(ftpMargin(281)).toBe(14);
-    expect(ftpMargin(200)).toBe(10);
-    expect(ftpMargin(10)).toBe(1);
+  it("gives the FTP a margin of ±10 %", () => {
+    expect(ftpMargin(281)).toBe(28);
+    expect(ftpMargin(200)).toBe(20);
+    expect(ftpMargin(4)).toBe(1);
   });
 
   it("detects that the rider stopped pedalling", () => {

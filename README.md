@@ -147,8 +147,8 @@ horde of red zombie dots behind you.
   to "match it" until ERG is back.
 - Stop pedalling (cadence below 20 rpm, or no data, for 4 s) during the warm-up and the warm-up pauses until you
   pedal again. Once the ramp has started, stopping ends the test with the result screen:
-  FTP = target of the last fully completed minute × 0.75, shown with a ±5 % margin (a ramp test is usually within
-  about 5 % of a 20-/60-minute test; strong sprinters tend to come out too high, endurance riders too low), plus W/kg,
+  FTP = target of the last fully completed minute × 0.75, shown with a ±10 % margin (a ramp test can be off by up
+  to about 10 % from a 20-/60-minute test; strong sprinters tend to come out too high, endurance riders too low), plus W/kg,
   best 1-min power and a chart with tabs for power (with the target), cadence, heart rate and distance.
 - The HUD shows cadence, heart rate and distance while you ride.
 - The result screen also shows average power, cadence and heart rate, distance and work, and lets you download the

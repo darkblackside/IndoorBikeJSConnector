@@ -174,13 +174,13 @@ export class StopDetector {
 }
 
 /**
- * Margin to read the FTP with, in watts: about ±5 %. A ramp test estimates FTP from a short maximal effort,
- * so it typically lands within roughly 5 % of a 20-/60-minute test; on top come test-day form and the
- * one-minute steps. Riders with a strong sprint (anaerobic capacity) tend to get a result that is too high,
+ * Margin to read the FTP with, in watts: ±10 %. A ramp test estimates FTP from a short maximal effort,
+ * so it can be off by up to about 10 % from a 20-/60-minute test (test-day form and the one-minute
+ * steps included). Riders with a strong sprint (anaerobic capacity) tend to get a result that is too high,
  * endurance riders one that is too low.
  */
 export function ftpMargin(ftp: number): number {
-  return Math.max(1, Math.round(ftp * 0.05));
+  return Math.max(1, Math.round(ftp * 0.1));
 }
 
 /**
