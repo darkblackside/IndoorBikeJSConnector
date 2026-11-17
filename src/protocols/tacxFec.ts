@@ -1,14 +1,17 @@
 import { getCharacteristicOrUndefined, getServiceOrUndefined, SerialQueue, subscribe, write } from "../gatt.ts";
 import {
+  encodeFecSpinDownRequest,
   encodeFecTargetPower,
   encodeFecTrackResistance,
   encodeFecUserConfiguration,
   encodeFecWindResistance,
   FecPage,
   parseFecPage,
+  type FecCalibrationProgress,
+  type FecCalibrationResponse,
   unwrapFecMessage,
 } from "../parsers/fec.ts";
-import type { ResolvedSimulationParams } from "../types.ts";
+import type { ResolvedSimulationParams, SpinDownProgress, SpinDownResult } from "../types.ts";
 import { Characteristic, Service } from "../uuids.ts";
 import type { ProtocolContext, ProtocolDriver, TrainerProtocol } from "./protocol.ts";
 
@@ -31,6 +34,8 @@ export const tacxFecDriver: ProtocolDriver = {
 class TacxFecProtocol implements TrainerProtocol {
   readonly name = "tacx-fec" as const;
   readonly capabilities = { erg: true, simulation: true };
+  readonly spinDownSupported = true;
+  private calibration?: (page: FecCalibrationProgress | FecCalibrationResponse) => void;
   private queue = new SerialQueue();
   private userConfigSent = false;
   private wind?: { cw: number; windSpeed: number };
@@ -45,7 +50,9 @@ class TacxFecProtocol implements TrainerProtocol {
     const pageView = unwrapFecMessage(value);
     const page = pageView && parseFecPage(pageView);
     if (!page) return;
-    if (page.page === FecPage.SpecificTrainerData) {
+    if (page.page === FecPage.CalibrationInProgress || page.page === FecPage.CalibrationRequestResponse) {
+      this.calibration?.(page);
+    } else if (page.page === FecPage.SpecificTrainerData) {
       this.ctx.emit({ power: page.power, cadence: page.cadence });
     } else {
       let distance: number | undefined;
@@ -71,6 +78,41 @@ class TacxFecProtocol implements TrainerProtocol {
       this.wind = { cw: p.cw, windSpeed: p.windSpeed };
     }
     await this.send(encodeFecTrackResistance(p.grade, p.crr));
+  }
+
+  /** Spin-down via the FE-C calibration pages: request (page 1), progress (page 2), result (page 1). */
+  async spinDown(onProgress: (p: SpinDownProgress) => void, signal: AbortSignal): Promise<SpinDownResult> {
+    await this.ensureUserConfig();
+    return new Promise<SpinDownResult>((resolve, reject) => {
+      let phase: SpinDownProgress["phase"] | undefined;
+      const finish = (result: SpinDownResult) => {
+        this.calibration = undefined;
+        signal.removeEventListener("abort", onAbort);
+        resolve(result);
+      };
+      const onAbort = () => finish({ ok: false, message: String(signal.reason ?? "cancelled") });
+      signal.addEventListener("abort", onAbort);
+      this.calibration = (page) => {
+        if (page.page === FecPage.CalibrationRequestResponse) {
+          finish(
+            page.spinDownSuccess
+              ? { ok: true, spinDownTime: page.spinDownTime }
+              : { ok: false, message: "the trainer reported a failed spin-down" },
+          );
+          return;
+        }
+        const next = page.speedCondition === "ok" ? "coast" : "speed-up";
+        if (next === phase) return;
+        phase = next;
+        const s = page.targetSpeed;
+        onProgress({ phase: next, targetSpeed: s === undefined ? undefined : { low: s, high: s } });
+      };
+      this.send(encodeFecSpinDownRequest()).catch((error) => {
+        this.calibration = undefined;
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      });
+    });
   }
 
   private async ensureUserConfig() {

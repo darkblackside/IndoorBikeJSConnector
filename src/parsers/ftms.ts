@@ -85,6 +85,7 @@ export interface FitnessMachineFeatures {
   targetSettingFeatures: number;
   powerTargetSupported: boolean;
   simulationSupported: boolean;
+  spinDownSupported: boolean;
 }
 
 export function parseFitnessMachineFeature(view: DataView): FitnessMachineFeatures {
@@ -95,6 +96,7 @@ export function parseFitnessMachineFeature(view: DataView): FitnessMachineFeatur
     targetSettingFeatures,
     powerTargetSupported: (targetSettingFeatures & (1 << 3)) !== 0,
     simulationSupported: (targetSettingFeatures & (1 << 13)) !== 0,
+    spinDownSupported: (targetSettingFeatures & (1 << 15)) !== 0,
   };
 }
 
@@ -125,6 +127,7 @@ export const FtmsOpCode = {
   StartOrResume: 0x07,
   StopOrPause: 0x08,
   SetIndoorBikeSimulation: 0x11,
+  SpinDownControl: 0x13,
   ResponseCode: 0x80,
 } as const;
 
@@ -150,6 +153,14 @@ export const ftmsResultName = (code: number): string =>
 export const encodeRequestControl = () => Uint8Array.of(FtmsOpCode.RequestControl);
 export const encodeReset = () => Uint8Array.of(FtmsOpCode.Reset);
 export const encodeStartOrResume = () => Uint8Array.of(FtmsOpCode.StartOrResume);
+/** Spin Down Control: start (0x01) or ignore/cancel (0x02) a spin-down calibration. */
+export const encodeSpinDownControl = (start: boolean) => Uint8Array.of(FtmsOpCode.SpinDownControl, start ? 0x01 : 0x02);
+
+/** Spin-down target speed window from a successful Spin Down Control response (km/h). */
+export function parseSpinDownTargetSpeed(parameter: DataView): { low: number; high: number } | undefined {
+  if (parameter.byteLength < 4) return undefined;
+  return { low: parameter.getUint16(0, true) / 100, high: parameter.getUint16(2, true) / 100 };
+}
 
 /** ERG: sint16 watts, resolution 1 W. */
 export function encodeSetTargetPower(watts: number): Uint8Array<ArrayBuffer> {
@@ -180,11 +191,17 @@ export function encodeSetIndoorBikeSimulation(p: {
 export interface FtmsResponse {
   requestOpCode: number;
   resultCode: number;
+  /** Response parameter bytes after the result code (e.g. spin-down target speeds). */
+  parameter: DataView;
 }
 
 export function parseFtmsResponse(view: DataView): FtmsResponse | undefined {
   if (view.byteLength < 3 || view.getUint8(0) !== FtmsOpCode.ResponseCode) return undefined;
-  return { requestOpCode: view.getUint8(1), resultCode: view.getUint8(2) };
+  return {
+    requestOpCode: view.getUint8(1),
+    resultCode: view.getUint8(2),
+    parameter: new DataView(view.buffer, view.byteOffset + 3, view.byteLength - 3),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -200,8 +217,12 @@ export const FtmsStatusOpCode = {
   StartedOrResumedByUser: 0x04,
   TargetPowerChanged: 0x08,
   IndoorBikeSimulationChanged: 0x12,
+  SpinDownStatus: 0x14,
   ControlPermissionLost: 0xff,
 } as const;
+
+/** Values of the Spin Down Status notification. */
+export const SpinDownStatus = { Requested: 0x01, Success: 0x02, Error: 0x03, StopPedaling: 0x04 } as const;
 
 export type FtmsStatus =
   | { kind: "reset" }
@@ -210,6 +231,7 @@ export type FtmsStatus =
   | { kind: "target-power"; watts: number }
   | { kind: "simulation"; grade: number; windSpeed: number }
   | { kind: "control-lost" }
+  | { kind: "spin-down"; status: number }
   | { kind: "other"; opCode: number };
 
 export function parseFitnessMachineStatus(view: DataView): FtmsStatus | undefined {
@@ -230,6 +252,8 @@ export function parseFitnessMachineStatus(view: DataView): FtmsStatus | undefine
       return view.byteLength >= 5
         ? { kind: "simulation", windSpeed: view.getInt16(1, true) / 1000, grade: view.getInt16(3, true) / 100 }
         : { kind: "other", opCode: op };
+    case S.SpinDownStatus:
+      return view.byteLength >= 2 ? { kind: "spin-down", status: view.getUint8(1) } : { kind: "other", opCode: op };
     case S.ControlPermissionLost:
       return { kind: "control-lost" };
     default:

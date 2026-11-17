@@ -1,6 +1,7 @@
 import { getCharacteristicOrUndefined, getServiceOrUndefined, SerialQueue, subscribe } from "../gatt.ts";
 import {
   encodeRequestControl,
+  encodeSpinDownControl,
   encodeSetIndoorBikeSimulation,
   encodeSetTargetPower,
   encodeStartOrResume,
@@ -11,8 +12,11 @@ import {
   parseFtmsResponse,
   parseIndoorBikeData,
   parsePowerRange,
+  parseSpinDownTargetSpeed,
+  SpinDownStatus,
+  type FtmsResponse,
 } from "../parsers/ftms.ts";
-import type { ResolvedSimulationParams, TrainerCapabilities } from "../types.ts";
+import type { ResolvedSimulationParams, SpinDownProgress, SpinDownResult, TrainerCapabilities } from "../types.ts";
 import { Characteristic, Service } from "../uuids.ts";
 import { UnsupportedError, type ProtocolContext, type ProtocolDriver, type TrainerProtocol } from "./protocol.ts";
 
@@ -59,6 +63,9 @@ class FtmsProtocol implements TrainerProtocol {
   /** What the trainer supports (Fitness Machine Feature), independent of who controls it. */
   private supported: TrainerCapabilities = NO_CAPABILITIES;
   private hasControl = false;
+  spinDownSupported = false;
+  /** Listener for Spin Down Status while a spin-down runs. */
+  private spinDownStatus?: (status: number) => void;
   /** When control was last refused; undefined while not refused. */
   private deniedAt?: number;
   /** A stop/pause by another client: send Start before the next command. */
@@ -67,7 +74,7 @@ class FtmsProtocol implements TrainerProtocol {
   private last?: LastTarget;
   private controlPoint?: BluetoothRemoteGATTCharacteristic;
   private queue = new SerialQueue();
-  private pending?: { opCode: number; resolve: (result: number) => void };
+  private pending?: { opCode: number; resolve: (response: FtmsResponse) => void };
 
   constructor(private readonly ctx: ProtocolContext) {}
 
@@ -92,12 +99,14 @@ class FtmsProtocol implements TrainerProtocol {
 
     let powerSupported = true;
     let simSupported = true;
+    let spinDownSupported = false;
     const feature = await getCharacteristicOrUndefined(service, Characteristic.fitnessMachineFeature);
     if (feature) {
       try {
         const f = parseFitnessMachineFeature(await feature.readValue());
         powerSupported = f.powerTargetSupported;
         simSupported = f.simulationSupported;
+        spinDownSupported = f.spinDownSupported;
       } catch {
         // keep optimistic defaults
       }
@@ -121,6 +130,7 @@ class FtmsProtocol implements TrainerProtocol {
     if (!this.controlPoint) return;
     await subscribe(this.controlPoint, this.onResponse);
     this.supported = { erg: powerSupported, simulation: simSupported };
+    this.spinDownSupported = spinDownSupported;
     // Not fatal when refused (e.g. a watch holds control): data still flows and commands retry later.
     const error = await this.queue.run(() => this.takeControl());
     if (error) this.ctx.warn?.(error);
@@ -138,31 +148,71 @@ class FtmsProtocol implements TrainerProtocol {
     await this.command(encodeSetIndoorBikeSimulation(p));
   }
 
-  /** Send a control request, taking control first if needed; requests are serialized. */
-  private command(bytes: Uint8Array<ArrayBuffer>): Promise<void> {
-    return this.queue.run(async () => {
-      if (!this.hasControl) {
-        const error = await this.takeControl();
-        if (error) throw error;
-      }
-      if (this.needStart) {
-        this.needStart = false;
-        await this.exchange(encodeStartOrResume()).catch(() => undefined);
-      }
-      let result = await this.exchange(bytes);
-      if (result === FtmsResult.ControlNotPermitted) {
-        // Another client took control without us noticing: try to take it back once.
-        this.setControl(false);
-        const error = await this.takeControl();
-        if (error) throw error;
-        result = await this.exchange(bytes);
-      }
-      if (result === FtmsResult.ControlNotPermitted) {
-        this.setControl(false);
-        throw new Error(CONTROL_DENIED_MESSAGE);
-      }
-      if (result !== FtmsResult.Success) throw new Error(`FTMS: ${ftmsResultName(result)}`);
+  /**
+   * Spin-down calibration: Spin Down Control (start) answers with the target speed window; the
+   * trainer then reports "stop pedalling" and finally success or error through Fitness Machine Status.
+   */
+  async spinDown(onProgress: (p: SpinDownProgress) => void, signal: AbortSignal): Promise<SpinDownResult> {
+    if (!this.spinDownSupported) throw new UnsupportedError(this.name, "Spin-down");
+    let status: (value: number) => void = () => undefined;
+    const statuses = new Promise<SpinDownResult>((resolve) => {
+      status = (value) => {
+        if (value === SpinDownStatus.StopPedaling) onProgress({ phase: "coast" });
+        else if (value === SpinDownStatus.Success) resolve({ ok: true });
+        else if (value === SpinDownStatus.Error) resolve({ ok: false, message: "the trainer reported a failed spin-down" });
+      };
     });
+    this.spinDownStatus = (value) => status(value);
+    const aborted = new Promise<SpinDownResult>((resolve) => {
+      const onAbort = () => resolve({ ok: false, message: String(signal.reason ?? "cancelled") });
+      if (signal.aborted) onAbort();
+      else signal.addEventListener("abort", onAbort, { once: true });
+    });
+    try {
+      const response = await this.queue.run(() => this.controlled(encodeSpinDownControl(true)));
+      const target = parseSpinDownTargetSpeed(response.parameter);
+      onProgress({ phase: "speed-up", targetSpeed: target });
+      const result = await Promise.race([statuses, aborted]);
+      if (!result.ok && signal.aborted) {
+        // Tell the trainer to drop the calibration; it may not answer any more.
+        await this.queue.run(() => this.exchange(encodeSpinDownControl(false))).catch(() => undefined);
+      }
+      return result;
+    } finally {
+      this.spinDownStatus = undefined;
+      this.needStart = true; // resume normal operation with the next command
+    }
+  }
+
+  /** Send a control request, taking control first if needed; requests are serialized. */
+  private async command(bytes: Uint8Array<ArrayBuffer>): Promise<void> {
+    await this.queue.run(() => this.controlled(bytes));
+  }
+
+  /** One request with control handling; call inside the queue. Resolves the successful response. */
+  private async controlled(bytes: Uint8Array<ArrayBuffer>): Promise<FtmsResponse> {
+    if (!this.hasControl) {
+      const error = await this.takeControl();
+      if (error) throw error;
+    }
+    if (this.needStart) {
+      this.needStart = false;
+      await this.exchange(encodeStartOrResume()).catch(() => undefined);
+    }
+    let response = await this.exchange(bytes);
+    if (response.resultCode === FtmsResult.ControlNotPermitted) {
+      // Another client took control without us noticing: try to take it back once.
+      this.setControl(false);
+      const error = await this.takeControl();
+      if (error) throw error;
+      response = await this.exchange(bytes);
+    }
+    if (response.resultCode === FtmsResult.ControlNotPermitted) {
+      this.setControl(false);
+      throw new Error(CONTROL_DENIED_MESSAGE);
+    }
+    if (response.resultCode !== FtmsResult.Success) throw new Error(`FTMS: ${ftmsResultName(response.resultCode)}`);
+    return response;
   }
 
   /** Request Control (+ Start). Resolves an error when refused. Call inside the queue. */
@@ -172,7 +222,7 @@ class FtmsProtocol implements TrainerProtocol {
     }
     let error: Error | undefined;
     try {
-      const result = await this.exchange(encodeRequestControl());
+      const result = (await this.exchange(encodeRequestControl())).resultCode;
       if (result === FtmsResult.ControlNotPermitted) error = new Error(CONTROL_DENIED_MESSAGE);
       else if (result !== FtmsResult.Success) error = new Error(`FTMS: ${ftmsResultName(result)}`);
     } catch (e) {
@@ -196,12 +246,12 @@ class FtmsProtocol implements TrainerProtocol {
     this.ctx.controlChanged?.();
   }
 
-  /** Write one request and wait for its indication; resolves the FTMS result code. */
-  private async exchange(bytes: Uint8Array<ArrayBuffer>): Promise<number> {
+  /** Write one request and wait for its indication; resolves the FTMS response. */
+  private async exchange(bytes: Uint8Array<ArrayBuffer>): Promise<FtmsResponse> {
     const cp = this.controlPoint;
     if (!cp) throw new Error("FTMS control point not available");
     const opCode = bytes[0]!;
-    const response = new Promise<number>((resolve, reject) => {
+    const response = new Promise<FtmsResponse>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending = undefined;
         reject(new Error(`FTMS: no response to op code 0x${opCode.toString(16)}`));
@@ -223,7 +273,7 @@ class FtmsProtocol implements TrainerProtocol {
     if (r && this.pending?.opCode === r.requestOpCode) {
       const { resolve } = this.pending;
       this.pending = undefined;
-      resolve(r.resultCode);
+      resolve(r);
     }
   };
 
@@ -246,6 +296,9 @@ class FtmsProtocol implements TrainerProtocol {
         break;
       case "target-power":
         if (last?.kind !== "erg" || last.watts !== s.watts) this.ctx.overridden?.();
+        break;
+      case "spin-down":
+        this.spinDownStatus?.(s.status);
         break;
       case "simulation":
         if (last?.kind !== "simulation" || Math.abs(last.grade - s.grade) > 0.005) this.ctx.overridden?.();

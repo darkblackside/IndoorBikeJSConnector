@@ -81,6 +81,10 @@
             <bm-button id="free-ride">Free ride</bm-button>
             <bm-field label="Rider weight" size="sm" class="narrow"><input id="weight" type="number" value="75" min="30" max="200" /><span slot="end">kg</span></bm-field>
           </div>
+          <div class="row" id="spindown-row" hidden>
+            <bm-button id="spindown" title="Calibrate the trainer: speed up, then coast">Spin-down</bm-button>
+            <span id="spindown-status" class="muted"></span>
+          </div>
         </div>
       </bm-card>
 

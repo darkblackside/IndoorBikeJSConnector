@@ -1,4 +1,10 @@
-import { defaultDrivers, type ProtocolContext, type ProtocolDriver, type TrainerProtocol } from "./protocols/index.ts";
+import {
+  defaultDrivers,
+  UnsupportedError,
+  type ProtocolContext,
+  type ProtocolDriver,
+  type TrainerProtocol,
+} from "./protocols/index.ts";
 import { BleSensor, type SensorOptions } from "./sensor.ts";
 import {
   riderDefaults,
@@ -6,6 +12,8 @@ import {
   type ProtocolName,
   type RiderProfile,
   type SimulationParams,
+  type SpinDownProgress,
+  type SpinDownResult,
   type TrainerCapabilities,
   type TrainerControl,
   type TrainerMode,
@@ -54,6 +62,8 @@ export class Trainer extends BleSensor {
   private lastSentAt = 0;
   private refreshTimer?: ReturnType<typeof setInterval>;
   private lastControl?: TrainerControl;
+  /** A spin-down is running: hold back ERG/SIM commands until it is finished. */
+  private spinDownRun?: AbortController;
 
   constructor(options: TrainerOptions = {}) {
     super(options);
@@ -84,11 +94,71 @@ export class Trainer extends BleSensor {
   }
   /** True when an ERG target is requested and the trainer accepted it, i.e. the trainer really holds the wattage. */
   get ergActive(): boolean {
-    return this.wanted.kind === "erg" && this.capabilities.erg && this.status === "connected" && !this.failed;
+    return (
+      this.wanted.kind === "erg" && this.capabilities.erg && this.status === "connected" && !this.failed && !this.spinDownRun
+    );
   }
   /** Snapshot of `capabilities`, `controlDenied` and `ergActive` (also delivered by the `control` event). */
   get control(): TrainerControl {
     return { capabilities: { ...this.capabilities }, controlDenied: this.controlDenied, ergActive: this.ergActive };
+  }
+
+  /** The connected trainer can run a spin-down calibration (FTMS with spin-down support, Tacx FE-C). */
+  get spinDownSupported(): boolean {
+    return this.status === "connected" && !!this.protocol?.spinDown && !!this.protocol.spinDownSupported;
+  }
+  /** A spin-down calibration is running. */
+  get spinningDown(): boolean {
+    return this.spinDownRun !== undefined;
+  }
+
+  /**
+   * Spin-down calibration: the rider speeds up past the target speed, then stops pedalling and
+   * lets the flywheel run down; the trainer measures its friction and corrects its power reading.
+   * Progress (what to tell the rider) comes as `spinDown` events. ERG/SIM is held back meanwhile
+   * and re-applied afterwards. Resolves `{ ok: false }` on timeout (default 90 s), `cancelSpinDown()`
+   * or a dropped connection; rejects only if the trainer can't do it or refuses the request.
+   */
+  async spinDown(options: { timeout?: number } = {}): Promise<SpinDownResult> {
+    const protocol = this.protocol;
+    if (!protocol || this.status !== "connected") throw new Error("Trainer is not connected");
+    if (!protocol.spinDown || !protocol.spinDownSupported) throw new UnsupportedError(protocol.name, "Spin-down");
+    if (this.spinDownRun) throw new Error("A spin-down is already running");
+    const run = new AbortController();
+    this.spinDownRun = run;
+    this.updateControl();
+    const timer = setTimeout(() => run.abort("timed out"), options.timeout ?? 90_000);
+    const offStatus = this.on("status", (s) => {
+      if (s !== "connected") run.abort("connection lost");
+    });
+    const progress = (p: SpinDownProgress) => this.emit("spinDown", p);
+    let final: SpinDownProgress;
+    try {
+      progress({ phase: "starting" });
+      const result = await protocol.spinDown(progress, run.signal);
+      final = result.ok ? { phase: "done", spinDownTime: result.spinDownTime } : { phase: "failed", message: result.message };
+      return result;
+    } catch (error) {
+      final = { phase: "failed", message: (error as Error).message };
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      offStatus();
+      this.spinDownRun = undefined;
+      this.updateControl();
+      // Put the trainer back into the requested mode.
+      if (this.protocol) {
+        this.sent = { kind: "none" };
+        void this.apply();
+      }
+      // Reported last, so `spinningDown` is already false for listeners.
+      progress(final!);
+    }
+  }
+
+  /** Stop a running spin-down (it resolves with `ok: false`). */
+  cancelSpinDown(): void {
+    this.spinDownRun?.abort("cancelled");
   }
 
   /** ERG mode: hold `watts` regardless of cadence. */
@@ -205,17 +275,17 @@ export class Trainer extends BleSensor {
     if (this.refreshInterval <= 0) return;
     this.refreshTimer = setInterval(
       () => {
-        if (!this.applying && this.now() - this.lastSentAt >= this.refreshInterval) this.resend();
+        if (!this.applying && !this.spinDownRun && this.now() - this.lastSentAt >= this.refreshInterval) this.resend();
       },
       Math.min(1000, this.refreshInterval),
     );
   }
 
   private async apply(): Promise<void> {
-    if (this.applying) return;
+    if (this.applying || this.spinDownRun) return;
     this.applying = true;
     try {
-      while (this.protocol && !sameMode(this.wanted, this.sent)) {
+      while (this.protocol && !this.spinDownRun && !sameMode(this.wanted, this.sent)) {
         const protocol = this.protocol;
         const mode = this.wanted;
         let ok = true;

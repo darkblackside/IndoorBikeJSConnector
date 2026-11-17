@@ -2,6 +2,7 @@ import { Characteristic, fec, ftms, Service, type ProtocolName } from "../src/in
 import {
   encodeCyclingPowerMeasurement,
   encodeFecGeneral,
+  fecBroadcast,
   encodeFecTrainer,
   encodeHeartRate,
   encodeIndoorBikeData,
@@ -38,6 +39,10 @@ export interface SimulatedTrainerState {
   exclusiveControl: boolean;
   /** Decoded commands received, for assertions. */
   commands: string[];
+  /** Spin-down calibration running (FTMS, FE-C): speed up past 30 km/h, then stop pedalling. */
+  spinDown?: "speed-up" | "coast";
+  /** Make the next spin-downs fail. */
+  spinDownFails?: boolean;
 }
 
 export interface SimulatedDevice {
@@ -103,6 +108,9 @@ export function createSimulatedTrainer(protocol: ProtocolName, name = defaultNam
   let crankRevs = 0;
   let fecEvents = 0;
   let notify: (() => void) | undefined;
+  /** Protocol-specific spin-down messages: phase changed to coast / finished. */
+  let onSpinDown: ((event: "coast" | "done") => void) | undefined;
+  const SPIN_DOWN_SPEED = 30; // km/h
 
   const step = (dt: number) => {
     state.time += dt;
@@ -117,6 +125,14 @@ export function createSimulatedTrainer(protocol: ProtocolName, name = defaultNam
     state.distance += (state.speed / 3.6) * dt;
     wheelRevs = state.distance / 2.096;
     crankRevs += (state.cadence / 60) * dt;
+    if (state.spinDown === "speed-up" && state.speed >= SPIN_DOWN_SPEED) {
+      state.spinDown = "coast";
+      onSpinDown?.("coast");
+    } else if (state.spinDown === "coast" && state.cadence === 0) {
+      state.spinDown = undefined;
+      command(state.spinDownFails ? "spin-down:failed" : "spin-down:done");
+      onSpinDown?.("done");
+    }
   };
 
   const command = (description: string, mode?: SimulatedMode) => {
@@ -129,7 +145,7 @@ export function createSimulatedTrainer(protocol: ProtocolName, name = defaultNam
       const svc = device.addService(Service.fitnessMachine);
       const data = svc.addCharacteristic(Characteristic.indoorBikeData, { notify: true });
       const feature = svc.addCharacteristic(Characteristic.fitnessMachineFeature, { read: true });
-      feature.readData = () => Uint8Array.of(0x02, 0x40, 0, 0, 0x08, 0x20, 0, 0); // cadence+power; power target + sim
+      feature.readData = () => Uint8Array.of(0x02, 0x40, 0, 0, 0x08, 0xa0, 0, 0); // cadence+power; power target, sim, spin-down
       const range = svc.addCharacteristic(Characteristic.supportedPowerRange, { read: true });
       range.readData = () => Uint8Array.of(0, 0, 0xd0, 0x07, 1, 0); // 0–2000 W
       const cp = svc.addCharacteristic(Characteristic.fitnessMachineControlPoint, { write: true, indicate: true });
@@ -161,6 +177,18 @@ export function createSimulatedTrainer(protocol: ProtocolName, name = defaultNam
             respond(ftms.FtmsResult.Success);
             return status.notify(powerStatus(watts));
           }
+          case ftms.FtmsOpCode.SpinDownControl: {
+            if (b[1] === 0x02) {
+              state.spinDown = undefined;
+              command("spin-down:cancel");
+              return respond(ftms.FtmsResult.Success);
+            }
+            state.spinDown = "speed-up";
+            command("spin-down:start");
+            const low = (SPIN_DOWN_SPEED - 5) * 100;
+            const high = SPIN_DOWN_SPEED * 100;
+            return cp.notify([0x80, op, ftms.FtmsResult.Success, low & 0xff, low >> 8, high & 0xff, high >> 8]);
+          }
           case ftms.FtmsOpCode.SetIndoorBikeSimulation: {
             const grade = v.getInt16(3, true) / 100;
             command(`sim:${grade}`, { kind: "simulation", grade });
@@ -171,6 +199,15 @@ export function createSimulatedTrainer(protocol: ProtocolName, name = defaultNam
             return respond(ftms.FtmsResult.OpCodeNotSupported);
         }
       };
+      onSpinDown = (event) =>
+        status.notify([
+          S.SpinDownStatus,
+          event === "coast"
+            ? ftms.SpinDownStatus.StopPedaling
+            : state.spinDownFails
+              ? ftms.SpinDownStatus.Error
+              : ftms.SpinDownStatus.Success,
+        ]);
       otherClient.takeControl = ({ reset = true, notify: tell = true } = {}) => {
         state.otherHasControl = true;
         state.controlGranted = false;
@@ -232,10 +269,28 @@ export function createSimulatedTrainer(protocol: ProtocolName, name = defaultNam
             return command("fec:wind");
           case fec.FecPage.UserConfiguration:
             return command(`fec:user:${page.getUint16(1, true) / 100}`);
+          case fec.FecPage.CalibrationRequestResponse:
+            if (page.getUint8(1) & 0x40) {
+              state.spinDown = "speed-up";
+              command("spin-down:start");
+            }
+            return;
         }
       };
       let alternate = false;
+      const speedRaw = Math.round((SPIN_DOWN_SPEED / 3.6) * 1000);
+      onSpinDown = (event) => {
+        if (event !== "done") return;
+        // Page 1: calibration response; 20 °C, spin-down time 9 s
+        read.notify(fecBroadcast([0x01, state.spinDownFails ? 0 : 0x40, 90, 0xff, 0xff, 0x28, 0x23, 0]));
+      };
       notify = () => {
+        if (state.spinDown) {
+          // Page 2: calibration in progress (speed condition: 1 = too low, 2 = ok; temperature ok)
+          const conditions = ((state.spinDown === "coast" ? 2 : 1) << 6) | (2 << 4);
+          read.notify(fecBroadcast([0x02, 0x40, conditions, 90, speedRaw & 0xff, speedRaw >> 8, 0x28, 0x23]));
+          return;
+        }
         alternate = !alternate;
         read.notify(
           alternate

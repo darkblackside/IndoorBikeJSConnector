@@ -10,7 +10,8 @@ import "@darkblackside/ui/fieldset.js";
 import "@darkblackside/ui/notice.js";
 import "@darkblackside/ui/tag.js";
 import "./style.css";
-import { IndoorBike, type ProtocolName } from "../src/index.ts";
+import { IndoorBike, type ProtocolName, type SpinDownProgress } from "../src/index.ts";
+import { spinDownText } from "./spinDown.ts";
 import {
   createSimulatedHeartRateMonitor,
   createSimulatedTrainer,
@@ -63,9 +64,15 @@ function createBike(): IndoorBike {
     render();
     log(`trainer control: ERG ${yes(c.capabilities.erg)}, SIM ${yes(c.capabilities.simulation)}, ERG holding ${yes(c.ergActive)}${c.controlDenied ? ", denied" : ""}`);
   });
+  b.on("spinDown", (p) => {
+    spinDown = p;
+    log(`spin-down: ${p.phase}${p.message ? ` (${p.message})` : ""}`);
+    render();
+  });
   b.on("status", ({ device, status }) => {
     const t = device === "trainer";
     showStatus(device);
+    if (t) render();
     $(t ? "#connect-trainer" : "#connect-hrm").textContent =
       status === "disconnected" ? (t ? "Connect trainer" : "Connect heart rate") : "Disconnect";
     log(`${device}: ${status}`);
@@ -151,6 +158,13 @@ const applySim = () => {
 };
 $("#grade").addEventListener("input", applySim);
 $("#wind").addEventListener("change", applySim);
+// --- spin-down calibration -----------------------------------------------------------
+let spinDown: SpinDownProgress | undefined;
+$("#spindown").addEventListener("click", () => {
+  if (bike.trainer.spinningDown) return bike.trainer.cancelSpinDown();
+  bike.trainer.spinDown().catch((e: Error) => log(`spin-down: ${e.message}`));
+});
+
 $("#free-ride").addEventListener("click", () => {
   $<HTMLInputElement>("#grade").value = "0";
   $("#grade-v").textContent = "0.0";
@@ -165,6 +179,9 @@ $("#weight").addEventListener("change", (e) =>
 const fmt = (v: number | undefined, d = 0) => (v === undefined ? "–" : v.toFixed(d));
 function render() {
   const d = bike.data;
+  $("#spindown-row").hidden = !bike.trainer.spinDownSupported;
+  $("#spindown").textContent = bike.trainer.spinningDown ? "Cancel spin-down" : "Spin-down";
+  $("#spindown-status").textContent = spinDown ? spinDownText(spinDown, d.speed) : "";
   $("#power").textContent = fmt(d.power);
   $("#cadence").textContent = fmt(d.cadence);
   $("#speed").textContent = fmt(d.speed, 1);

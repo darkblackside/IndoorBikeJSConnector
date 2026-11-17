@@ -1,6 +1,6 @@
 import { Emitter } from "./emitter.ts";
 import { delay } from "./gatt.ts";
-import type { BikeData, BluetoothLike, ConnectionStatus, TrainerControl } from "./types.ts";
+import type { BikeData, BluetoothLike, ConnectionStatus, SpinDownProgress, TrainerControl } from "./types.ts";
 
 export interface SensorEvents extends Record<string, unknown> {
   status: ConnectionStatus;
@@ -10,6 +10,8 @@ export interface SensorEvents extends Record<string, unknown> {
   error: Error;
   /** Trainers only: control state changed (connected, control lost to/regained from another client, ERG failed/works). */
   control: TrainerControl;
+  /** Trainers only: progress of a spin-down calibration started with `spinDown()`. */
+  spinDown: SpinDownProgress;
 }
 
 export interface SensorOptions {
