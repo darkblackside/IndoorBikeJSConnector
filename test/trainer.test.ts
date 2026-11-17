@@ -309,6 +309,95 @@ describe("sharing the trainer with a watch (second FTMS client)", () => {
   });
 });
 
+describe("spin-down calibration", () => {
+  async function run(protocol: ProtocolName, options: { fails?: boolean } = {}) {
+    const t = await connect(protocol);
+    t.sim.state.spinDownFails = options.fails;
+    const phases: string[] = [];
+    t.trainer.on("spinDown", (p) => {
+      phases.push(p.phase);
+      if (p.phase === "done" || p.phase === "failed") expect(t.trainer.spinningDown).toBe(false);
+    });
+    t.trainer.setTargetPower(200);
+    await settle();
+    const done = t.trainer.spinDown();
+    await settle();
+    expect(t.trainer.spinningDown).toBe(true);
+    expect(t.trainer.ergActive).toBe(false);
+    t.sim.state.cadence = 60; // ~22 km/h: too slow
+    await t.ride();
+    t.sim.state.cadence = 90; // ~33 km/h: fast enough
+    await t.ride();
+    t.sim.state.cadence = 0; // stop pedalling, coast
+    await t.ride();
+    const result = await done;
+    await settle();
+    return { ...t, result, phases };
+  }
+
+  it.each(["ftms", "tacx-fec"] as const)("%s: guides speed-up, coast, done; then restores ERG", async (protocol) => {
+    const { trainer, sim, result, phases } = await run(protocol);
+    expect(trainer.spinDownSupported).toBe(true);
+    expect(result.ok).toBe(true);
+    expect(phases).toEqual(["starting", "speed-up", "coast", "done"]);
+    expect(sim.state.commands).toContain("spin-down:start");
+    expect(sim.state.commands).toContain("spin-down:done");
+    // ERG was held back during the spin-down and comes back afterwards
+    const start = sim.state.commands.indexOf("spin-down:start");
+    expect(sim.state.commands.slice(start).filter((c) => c === "erg:200")).toHaveLength(1);
+    expect(sim.state.commands.at(-1)).toBe("erg:200");
+    expect(sim.state.mode).toEqual({ kind: "erg", watts: 200 });
+    expect(trainer.ergActive).toBe(true);
+    if (protocol === "tacx-fec") expect(result.spinDownTime).toBe(9000);
+  });
+
+  it("FTMS reports the target speed window", async () => {
+    const t = await connect("ftms");
+    const progress: unknown[] = [];
+    t.trainer.on("spinDown", (p) => progress.push(p));
+    void t.trainer.spinDown();
+    await settle();
+    expect(progress[1]).toEqual({ phase: "speed-up", targetSpeed: { low: 25, high: 30 } });
+    t.trainer.cancelSpinDown();
+    await settle();
+  });
+
+  it.each(["ftms", "tacx-fec"] as const)("%s: reports a failed spin-down", async (protocol) => {
+    const { result, phases } = await run(protocol, { fails: true });
+    expect(result.ok).toBe(false);
+    expect(phases.at(-1)).toBe("failed");
+  });
+
+  it("can be cancelled and times out", async () => {
+    const t = await connect("ftms");
+    const cancelled = t.trainer.spinDown();
+    await settle();
+    t.trainer.cancelSpinDown();
+    expect(await cancelled).toEqual({ ok: false, message: "cancelled" });
+    await settle();
+    expect(t.sim.state.commands.at(-1)).toBe("spin-down:cancel");
+    expect(await t.trainer.spinDown({ timeout: 10 })).toEqual({ ok: false, message: "timed out" });
+    expect(t.trainer.spinningDown).toBe(false);
+  });
+
+  it("ends when the connection drops", async () => {
+    const t = await connect("ftms");
+    const done = t.trainer.spinDown();
+    await settle();
+    t.sim.device.drop();
+    expect(await done).toEqual({ ok: false, message: "connection lost" });
+  });
+
+  it("is not offered by Wahoo legacy and power meters", async () => {
+    for (const protocol of ["wahoo", "cycling-power"] as const) {
+      const { trainer } = await connect(protocol);
+      expect(trainer.spinDownSupported).toBe(false);
+      await expect(trainer.spinDown()).rejects.toThrow(/not supported/);
+      trainer.disconnect();
+    }
+  });
+});
+
 describe("IndoorBike facade", () => {
   it("merges trainer and heart rate strap data", async () => {
     const bluetooth = new FakeBluetooth();

@@ -41,7 +41,15 @@ describe("FTMS indoor bike data", () => {
       simulationSupported: true,
     });
     expect(ftms.parsePowerRange(view(0, 0, 0xd0, 0x07, 1, 0))).toEqual({ min: 0, max: 2000, increment: 1 });
-    expect(ftms.parseFtmsResponse(view(0x80, 0x05, 0x01))).toEqual({ requestOpCode: 5, resultCode: 1 });
+    expect(ftms.parseFtmsResponse(view(0x80, 0x05, 0x01))).toMatchObject({ requestOpCode: 5, resultCode: 1 });
+    expect(ftms.parseFitnessMachineFeature(view(0, 0, 0, 0, 0x08, 0xa0, 0, 0)).spinDownSupported).toBe(true);
+    expect(ftms.parseFitnessMachineFeature(view(0, 0, 0, 0, 0x08, 0x20, 0, 0)).spinDownSupported).toBe(false);
+    // Spin Down Control response with target speeds 25.00 / 30.00 km/h
+    const r = ftms.parseFtmsResponse(view(0x80, 0x13, 0x01, 0xc4, 0x09, 0xb8, 0x0b))!;
+    expect(ftms.parseSpinDownTargetSpeed(r.parameter)).toEqual({ low: 25, high: 30 });
+    expect([...ftms.encodeSpinDownControl(true)]).toEqual([0x13, 0x01]);
+    expect([...ftms.encodeSpinDownControl(false)]).toEqual([0x13, 0x02]);
+    expect(ftms.parseFitnessMachineStatus(view(0x14, 0x04))).toEqual({ kind: "spin-down", status: 4 });
     expect(ftms.parseFtmsResponse(view(0x05, 0x01))).toBeUndefined();
   });
 
@@ -115,6 +123,28 @@ describe("Wahoo legacy", () => {
 });
 
 describe("FE-C", () => {
+  it("encodes the spin-down request and reads calibration pages", () => {
+    const page = (...b: number[]) => new DataView(Uint8Array.from(b).buffer);
+    expect([...fec.encodeFecSpinDownRequest()].slice(4, 12)).toEqual([0x01, 0x40, 0, 0, 0, 0, 0, 0]);
+    // page 2: spin-down pending, speed ok, temperature ok, target 8.333 m/s
+    expect(fec.parseFecPage(page(0x02, 0x40, 0xa0, 90, 0x8d, 0x20, 0x28, 0x23))).toEqual({
+      page: 0x02,
+      spinDownPending: true,
+      speedCondition: "ok",
+      temperatureCondition: "ok",
+      targetSpeed: 8.333 * 3.6,
+    });
+    expect(fec.parseFecPage(page(0x02, 0x40, 0x60, 90, 0x8d, 0x20, 0, 0))).toMatchObject({ speedCondition: "too-low" });
+    // page 1 response: spin-down succeeded, 20 °C, 9000 ms
+    expect(fec.parseFecPage(page(0x01, 0x40, 90, 0xff, 0xff, 0x28, 0x23, 0))).toEqual({
+      page: 0x01,
+      spinDownSuccess: true,
+      zeroOffsetSuccess: false,
+      temperature: 20,
+      spinDownTime: 9000,
+    });
+  });
+
   it("wraps pages into acknowledged ANT messages with checksum", () => {
     expect(hex(fec.encodeFecTargetPower(250))).toBe("a4 09 4f 05 31 ff ff ff ff ff e8 03 c2");
     expect(hex(fec.encodeFecTrackResistance(5, 0.004))).toBe("a4 09 4f 05 33 ff ff ff ff 14 50 50 c0");

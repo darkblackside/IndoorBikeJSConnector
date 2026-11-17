@@ -1,5 +1,7 @@
 import type {
   BikeData,
+  SpinDownProgress,
+  SpinDownResult,
   ProtocolName,
   ResolvedSimulationParams,
   RiderProfile,
@@ -38,6 +40,14 @@ export interface TrainerProtocol {
   readonly powerRange?: { min: number; max: number };
   setTargetPower(watts: number): Promise<void>;
   setSimulation(params: ResolvedSimulationParams): Promise<void>;
+  /** The trainer can run a spin-down calibration. */
+  readonly spinDownSupported?: boolean;
+  /**
+   * Run a spin-down calibration. Report progress through `onProgress` (not the final
+   * done/failed, the trainer does that); resolve when finished. Must give up and cancel
+   * when `signal` aborts.
+   */
+  spinDown?(onProgress: (p: SpinDownProgress) => void, signal: AbortSignal): Promise<SpinDownResult>;
 }
 
 /**

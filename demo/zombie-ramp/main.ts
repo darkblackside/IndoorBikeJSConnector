@@ -8,7 +8,8 @@ import "@darkblackside/ui/fieldset.js";
 import "@darkblackside/ui/notice.js";
 import "@darkblackside/ui/tag.js";
 import "./style.css";
-import { IndoorBike, type ProtocolName } from "../../src/index.ts";
+import { IndoorBike, type ProtocolName, type SpinDownProgress } from "../../src/index.ts";
+import { spinDownText } from "../spinDown.ts";
 import {
   createSimulatedHeartRateMonitor,
   createSimulatedTrainer,
@@ -89,7 +90,17 @@ function createBike(): IndoorBike {
     if (t) updateErgNote(b);
     $(t ? "#connect-trainer" : "#connect-hrm").textContent =
       status === "disconnected" ? (t ? "Connect trainer" : "Connect heart rate (optional)") : "Disconnect";
-    $<HTMLElementTagNameMap["bm-button"]>("#start").disabled = b.trainer.status !== "connected";
+    syncSpinDown(b);
+  });
+  b.on("spinDown", (p) => {
+    spinDownProgress = p;
+    syncSpinDown(b);
+    // The simulated rider follows the instructions (there's no cadence slider before the test).
+    if (useSim() && p.phase === "speed-up") setSimCadence(90);
+    if (useSim() && p.phase === "coast") setTimeout(() => setSimCadence(0), 1500);
+  });
+  b.on("data", () => {
+    if (b.trainer.spinningDown) syncSpinDown(b);
   });
   // ERG can stop or start working while connected (e.g. a watch paired to the same trainer takes control).
   b.on("control", () => {
@@ -98,6 +109,24 @@ function createBike(): IndoorBike {
   });
   return b;
 }
+
+// --- spin-down calibration (before the test) ---------------------------------------------
+let spinDownProgress: SpinDownProgress | undefined;
+function syncSpinDown(b: IndoorBike) {
+  const busy = b.trainer.spinningDown;
+  $("#spindown-row").hidden = !b.trainer.spinDownSupported;
+  $("#spindown").textContent = busy ? "Cancel spin-down" : "Calibrate (spin-down)";
+  $("#spindown-status").textContent = spinDownProgress
+    ? spinDownText(spinDownProgress, b.data.speed)
+    : "Recommended after a 10-minute warm-up, for accurate power.";
+  $("#spindown-status").classList.toggle("muted", !busy);
+  $<HTMLElementTagNameMap["bm-button"]>("#start").disabled = b.trainer.status !== "connected" || busy;
+}
+$("#spindown").addEventListener("click", () => {
+  if (bike.trainer.spinningDown) return bike.trainer.cancelSpinDown();
+  spinDownProgress = undefined;
+  bike.trainer.spinDown().catch(() => undefined); // failures arrive as a "failed" progress event
+});
 
 /** The ERG option is only offered while ERG works with the connected trainer. */
 function updateErgNote(b: IndoorBike) {

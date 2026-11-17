@@ -33,6 +33,27 @@ export interface TrainerControl {
   ergActive: boolean;
 }
 
+/** Progress of a spin-down calibration (`spinDown` event); tell the rider what to do. */
+export interface SpinDownProgress {
+  /**
+   * starting: request sent · speed-up: ride faster than `targetSpeed.high` ·
+   * coast: stop pedalling and let the flywheel run down · done / failed: finished.
+   */
+  phase: "starting" | "speed-up" | "coast" | "done" | "failed";
+  /** km/h; the trainer wants you above `high` (FE-C reports one value, given as both). */
+  targetSpeed?: { low: number; high: number };
+  /** Spin-down time in ms when the trainer reports it (done). */
+  spinDownTime?: number;
+  /** Why it failed. */
+  message?: string;
+}
+
+export interface SpinDownResult {
+  ok: boolean;
+  spinDownTime?: number;
+  message?: string;
+}
+
 /** Road simulation parameters. Only `grade` is required. */
 export interface SimulationParams {
   /** Road grade in percent, e.g. 4.5 for 4.5 %. Negative for downhill. */

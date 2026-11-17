@@ -10,6 +10,8 @@ const MSG_ACKNOWLEDGED = 0x4f;
 const CHANNEL = 0x05;
 
 export const FecPage = {
+  CalibrationRequestResponse: 0x01,
+  CalibrationInProgress: 0x02,
   GeneralFeData: 0x10,
   SpecificTrainerData: 0x19,
   TargetPower: 0x31,
@@ -56,8 +58,59 @@ export interface FecTrainerData {
   power?: number;
 }
 
-export function parseFecPage(page: DataView): FecGeneralData | FecTrainerData | undefined {
+/** Page 1 from the trainer: result of a calibration. */
+export interface FecCalibrationResponse {
+  page: typeof FecPage.CalibrationRequestResponse;
+  spinDownSuccess: boolean;
+  zeroOffsetSuccess: boolean;
+  /** °C, undefined if not reported */
+  temperature?: number;
+  /** ms */
+  spinDownTime?: number;
+}
+
+/** Page 2: calibration running; tells the rider what to do. */
+export interface FecCalibrationProgress {
+  page: typeof FecPage.CalibrationInProgress;
+  spinDownPending: boolean;
+  /** "too-low": ride faster; "ok": target speed reached, stop pedalling. */
+  speedCondition: "n/a" | "too-low" | "ok";
+  temperatureCondition: "n/a" | "too-low" | "ok" | "too-high";
+  /** km/h, undefined if not reported */
+  targetSpeed?: number;
+}
+
+/** Page 1 to the trainer: request a spin-down calibration. */
+export function encodeFecSpinDownRequest(): Uint8Array<ArrayBuffer> {
+  return wrapFecPage(Uint8Array.of(FecPage.CalibrationRequestResponse, 0x40, 0, 0, 0, 0, 0, 0));
+}
+
+export function parseFecPage(
+  page: DataView,
+): FecGeneralData | FecTrainerData | FecCalibrationResponse | FecCalibrationProgress | undefined {
   switch (page.getUint8(0)) {
+    case FecPage.CalibrationRequestResponse: {
+      const temp = page.getUint8(2);
+      const time = page.getUint16(5, true);
+      return {
+        page: FecPage.CalibrationRequestResponse,
+        spinDownSuccess: (page.getUint8(1) & 0x40) !== 0,
+        zeroOffsetSuccess: (page.getUint8(1) & 0x80) !== 0,
+        temperature: temp === 0xff ? undefined : temp * 0.5 - 25,
+        spinDownTime: time === 0xffff ? undefined : time,
+      };
+    }
+    case FecPage.CalibrationInProgress: {
+      const conditions = page.getUint8(2);
+      const speed = page.getUint16(4, true);
+      return {
+        page: FecPage.CalibrationInProgress,
+        spinDownPending: (page.getUint8(1) & 0x40) !== 0,
+        speedCondition: (["n/a", "too-low", "ok", "n/a"] as const)[(conditions >> 6) & 0x03]!,
+        temperatureCondition: (["n/a", "too-low", "ok", "too-high"] as const)[(conditions >> 4) & 0x03]!,
+        targetSpeed: speed === 0xffff ? undefined : (speed / 1000) * 3.6,
+      };
+    }
     case FecPage.GeneralFeData: {
       const speedRaw = page.getUint16(4, true);
       const hr = page.getUint8(6);

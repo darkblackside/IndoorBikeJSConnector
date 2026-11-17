@@ -2,7 +2,7 @@ import { Emitter } from "./emitter.ts";
 import { HeartRateMonitor } from "./heartRateMonitor.ts";
 import type { ConnectOptions } from "./sensor.ts";
 import { Trainer, type TrainerOptions } from "./trainer.ts";
-import type { BikeData, ConnectionStatus, SimulationParams, TrainerControl } from "./types.ts";
+import type { BikeData, ConnectionStatus, SimulationParams, SpinDownProgress, TrainerControl } from "./types.ts";
 
 export type DeviceRole = "trainer" | "heartRateMonitor";
 
@@ -16,6 +16,8 @@ export interface IndoorBikeEvents extends Record<string, unknown> {
    * another app or device (e.g. a watch) holds control, and whether ERG really works.
    */
   control: TrainerControl;
+  /** Progress of a trainer spin-down calibration (`bike.trainer.spinDown()`). */
+  spinDown: SpinDownProgress;
 }
 
 /**
@@ -47,6 +49,7 @@ export class IndoorBike extends Emitter<IndoorBikeEvents> {
       sensor.on("error", (error) => this.emit("error", { device: role, error }));
     }
     this.trainer.on("control", (control) => this.emit("control", control));
+    this.trainer.on("spinDown", (p) => this.emit("spinDown", p));
   }
 
   get data(): Readonly<BikeData> {

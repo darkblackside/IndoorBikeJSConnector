@@ -77,6 +77,11 @@ bike.disconnect();
 - `connectTrainer({ device })` takes an already-known `BluetoothDevice` (e.g. from `navigator.bluetooth.getDevices()`) to reconnect without the chooser.
 - `Trainer` and `HeartRateMonitor` can be used on their own. The `IndoorBike` facade just combines them.
 - Pass `bluetooth` to use something other than `navigator.bluetooth` (for example the `webbluetooth` npm package in Node/Electron, or a mock).
+- **Spin-down calibration:** `await bike.trainer.spinDown()` when `bike.trainer.spinDownSupported` (FTMS trainers that
+  offer it, Tacx FE-C). The `spinDown` event tells the rider what to do: `speed-up` (above `targetSpeed.high` km/h),
+  `coast` (stop pedalling), then `done` or `failed`. ERG/SIM is held back meanwhile and re-applied afterwards.
+  `cancelSpinDown()` stops it; it also ends on a timeout (90 s) or a dropped connection. Not available for older
+  Wahoo KICKRs without FTMS (use the Wahoo app) or power meters.
 - **Sharing the trainer with a watch** (e.g. a Garmin paired to the same trainer): both can be connected at the
   same time and both get the data. FTMS lets only one client control the trainer, though:
   - Watch first, then the app: if the watch holds control, the trainer still connects (data, read-only) and
@@ -142,6 +147,7 @@ horde of red zombie dots behind you.
   are from the target and you match it with gears and cadence.
 - The zombies run at the target wattage, you run at your measured power (3 s average). Hold the target and
   they stay behind (and creep a bit closer each step); fall short and they close in. If they catch you, the test ends.
+- **Calibrate (spin-down)** in the setup, when the trainer supports it, guides you through the spin-down.
 - **Use ERG mode** is only offered while ERG works with the connected trainer. During the test the HUD shows "ERG"
   only while the trainer really holds the target; if it stops (e.g. a watch takes control of the trainer) it switches
   to "match it" until ERG is back.
