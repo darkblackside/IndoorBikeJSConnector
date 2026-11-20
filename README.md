@@ -7,7 +7,7 @@ Games and training apps for smart trainers in the browser. This repository is an
 | `packages/connector` | `indoor-bike-js-connector` (published) | The Web Bluetooth trainer/HR library: FTMS, Wahoo, Tacx FE-C, Cycling Power, ERG/SIM. No UI, no runtime deps. **[Docs](packages/connector/README.md)** | Browser |
 | `packages/game-core` | `@indoor-bike/game-core` (private) | Game rules and simulation (Zombie Ramp: ramp test, city/horde, .fit/.tcx export; 20-min FTP test: block plan, coaching, pacing, result; Feed the Horde: sweat, workouts, block judging, bots) and the multiplayer protocol: Colyseus room state schema and client messages. No DOM, no engine | Browser + Node |
 | `apps/web` | `@indoor-bike/web` (private) | Frontend (Vite, TypeScript, **three.js**): game hub with Offline/Online tabs, the [Zombie Ramp](apps/web/ZOMBIE_RAMP.md) and [20-min FTP test](apps/web/FTP20.md) games, the online co-op game [Feed the Horde](apps/web/HORDE.md), a hidden debug bench, the multiplayer client. [Details](apps/web/README.md) | Browser |
-| `apps/server` | `@indoor-bike/server` (private) | Multiplayer backend (Node, TypeScript, **Colyseus** over WebSocket), no accounts: the persistent Feed the Horde world with simulated riders, and a group-ride skeleton. Dockerfile included. [Details](apps/server/README.md) | Node |
+| `apps/server` | `@indoor-bike/server` (private) | Multiplayer backend (Node, TypeScript, **Colyseus** over WebSocket), no accounts: the persistent Feed the Horde world with simulated riders, and a group-ride skeleton. One container image with the web app included, published to ghcr.io. [Details](apps/server/README.md) | Node |
 
 **Try it:** [the game hub](https://darkblackside.github.io/IndoorBikeJSConnector/) in Chrome or Edge: the **Offline**
 tab has the single-player games (the Zombie Ramp ramp test and the 20-min FTP test), the **Online** tab has the co-op game Feed the Horde
@@ -42,7 +42,8 @@ the app, it is at [/debug/](https://darkblackside.github.io/IndoorBikeJSConnecto
 
 ### Next steps (not done yet)
 
-1. Host the server (`apps/server/Dockerfile`) and set the repository variable `SERVER_URL` for the Pages build.
+1. Run the container from `ghcr.io/darkblackside/indoorbikejsconnector` somewhere with HTTPS (it serves the web app and
+   the game server together; see [apps/server](apps/server/README.md#deployment-one-container)).
 2. Server: the game loop in `RideRoom` (start when everyone is ready, shared `seed`, fixed tick with game-core rules).
 3. Move the Zombie Ramp from the canvas renderer to three.js (start from the sandbox).
 

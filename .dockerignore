@@ -1,7 +1,7 @@
 **/node_modules
 **/dist
+**/*.tsbuildinfo
 .git
-apps/web/src
-apps/web/*/
-apps/web/*.html
+.github
 apps/server/data
+certificates

@@ -17,7 +17,8 @@
   "dependencies": {
     "@colyseus/core": "^0.18.28",
     "@colyseus/ws-transport": "^0.18.5",
-    "@indoor-bike/game-core": "*"
+    "@indoor-bike/game-core": "*",
+    "express": "^5.3.0"
   },
   "devDependencies": {
     "@colyseus/sdk": "^0.18.10",

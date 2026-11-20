@@ -8,6 +8,8 @@ export interface ServerConfig {
   hordeDataFile: string;
   /** Run the simulated riders in the horde room. */
   hordeBots: boolean;
+  /** Built web app to serve over HTTP (apps/web/dist). Empty: serve no frontend (dev: Vite serves it). */
+  webDir: string;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -20,5 +22,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       .filter(Boolean),
     hordeDataFile: env.HORDE_DATA_FILE ?? "data/horde.json",
     hordeBots: !["0", "false", "off", "no"].includes((env.HORDE_BOTS ?? "1").toLowerCase()),
+    webDir: env.WEB_DIR ?? "",
   };
 }

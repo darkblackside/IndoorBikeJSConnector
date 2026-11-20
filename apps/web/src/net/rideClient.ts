@@ -16,9 +16,14 @@ import {
   type RiderSample,
 } from "@indoor-bike/game-core/net";
 
-/** Server URL: `VITE_SERVER_URL` at build time (empty counts as unset), otherwise the dev server on this host. */
-export const defaultServerUrl = (): string =>
-  import.meta.env.VITE_SERVER_URL || `${location.protocol === "https:" ? "wss" : "ws"}://${location.hostname}:8787`;
+/**
+ * Server URL: `VITE_SERVER_URL` at build time (empty counts as unset). Otherwise, in dev the game server on this host
+ * (port 8787, next to Vite), and in a production build the server the page came from (the container serves both).
+ */
+export const defaultServerUrl = (): string => {
+  const ws = location.protocol === "https:" ? "wss" : "ws";
+  return import.meta.env.VITE_SERVER_URL || (import.meta.env.DEV ? `${ws}://${location.hostname}:8787` : `${ws}://${location.host}`);
+};
 
 /** Samples are sent at most this often (the trainer reports several times per second). */
 const SAMPLE_INTERVAL_MS = 250;
