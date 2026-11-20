@@ -82,7 +82,6 @@ export class HordeRoom extends Room<{ state: HordeState }> {
       person.input = {
         power: sample.power ?? 0,
         cadence: sample.cadence ?? 0,
-        // A heart rate is health data (Art. 9 GDPR): never kept or synced to other clients (privacy policy).
         at: this.clock.currentTime,
       };
     },
@@ -173,7 +172,6 @@ export class HordeRoom extends Room<{ state: HordeState }> {
       fed += session.sweat - before;
       rate += session.rate;
       rider.cadence = input.cadence;
-      rider.heartRate = Math.round(60 + session.intensity * 100);
       this.writeRider(rider, session);
       this.handle(bot.id, rider, events);
       if (session.done) this.director!.finish(bot);

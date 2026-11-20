@@ -15,7 +15,6 @@ export const RiderState = schema(
     /** Latest values from the rider's devices (0 until reported). */
     power: t.uint16(),
     cadence: t.uint8(),
-    heartRate: t.uint8(),
     /** Distance along the shared route (metres). Set by the server's game loop (not implemented yet). */
     s: t.float64(),
     /** Distance to the horde behind this rider (metres). */

@@ -37,7 +37,7 @@ the app, it is at [/debug/](https://darkblackside.github.io/IndoorBikeJSConnecto
   (`apps/web/src/zombie-ramp/cityRenderer.ts`); the dev-only sandbox page (`/sandbox/`) shows the same `CityWorld` in three.js.
 - **Multiplayer via Colyseus.** The room state (`RideState`, Colyseus schema) and the client messages live in
   `@indoor-bike/game-core/net`, so server and client share one definition. The server owns the state; Colyseus syncs
-  it to every client as binary delta patches. Clients only send their device samples (power, cadence, heart rate).
+  it to every client as binary delta patches. Clients only send their device samples (power, cadence; never the heart rate, which is health data and stays in the browser).
 - **TypeScript everywhere**, strict, one shared `tsconfig.base.json`.
 
 ### Next steps (not done yet)

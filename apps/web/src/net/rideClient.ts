@@ -3,7 +3,7 @@
  *
  * Usage, once a game goes multiplayer:
  *   const ride = await joinRide({ name: "Ann", weightKg: 70 });
- *   bike.on("data", (d) => ride.sendSample({ power: d.power, cadence: d.cadence })); // no heart rate (health data)
+ *   bike.on("data", (d) => ride.sendSample({ power: d.power, cadence: d.cadence }));
  *   ride.room.onStateChange((state) => render(state.riders));
  */
 import { Client, type Room } from "@colyseus/sdk";

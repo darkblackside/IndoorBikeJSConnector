@@ -13,7 +13,7 @@ update its date ("Stand").
 | No external requests (fonts, scripts, CDNs) | Fonts self-hosted in `src/common/fonts/` (`@fontsource`, OFL). No Google Fonts links, no analytics, no embeds |
 | No cookies; `localStorage` holds only FTP and display name | `src/common/profile.ts` (`indoor-bike.ftp`, `indoor-bike.name`). A new key → list it |
 | Bluetooth data stays in the browser; offline games send nothing | Only the online game talks to the server |
-| **Heart rate never leaves the device** | `src/horde/main.ts` sends power and cadence only; `HordeRoom`/`RideRoom` never copy `heartRate` into the synced state. Sending it would make it health data (Art. 9 GDPR) on the server: that needs explicit consent first |
+| **Heart rate never leaves the device** | Not part of the protocol: `RiderSample` (`game-core/net/messages.ts`) has no heart rate, `checkSample` drops anything else a client sends, the room states have no such field (protocol 2). Health data (Art. 9 GDPR): adding it needs explicit consent and a new policy first |
 | Online game: name, workout, FTP, power, cadence; visible to everyone; in memory only, gone on leave (30 s reconnect window) | `apps/server/src/rooms/HordeRoom.ts`. Only the anonymous total sweat is persisted (`horde/store.ts`) |
 | Server logs contain no personal data | `apps/server/src` logs only startup and store errors. Don't log names or IPs |
 | Server logs (Traefik access log, with IPs) ≤ 7 days, not backed up | infrastructure: `setup-log-rotation.sh` (`ACCESS_LOG_ROTATE=7`) |
