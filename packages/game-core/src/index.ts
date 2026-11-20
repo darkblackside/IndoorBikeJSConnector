@@ -5,4 +5,5 @@
  */
 export * from "./zombie-ramp/index.ts";
 export * from "./ftp20/index.ts";
+export * from "./horde/index.ts";
 export * from "./net/index.ts";

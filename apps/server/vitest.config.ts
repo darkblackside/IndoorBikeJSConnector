@@ -7,5 +7,6 @@ const conditions = ["indoor-bike-source", ...defaultServerConditions];
 export default defineConfig({
   resolve: { conditions },
   ssr: { resolve: { conditions, externalConditions: conditions } },
-  test: { name: "server", include: ["test/**/*.test.ts"], environment: "node" },
+  // Every test file boots a server on the same port (@colyseus/testing ignores the port for a Server instance).
+  test: { name: "server", include: ["test/**/*.test.ts"], environment: "node", fileParallelism: false },
 });

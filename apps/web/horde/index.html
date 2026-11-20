@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Feed the Horde</title>
+    <!-- Fonts of the gamification theme (@darkblackside/ui); system fonts are the fallback -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@600;800&display=swap" />
+  </head>
+  <body>
+    <canvas id="arena"></canvas>
+    <div id="labels" aria-hidden="true"></div>
+
+    <!-- Always visible: the shared horde -->
+    <header class="topbar">
+      <a class="back" href="../#online">← Games</a>
+      <div class="horde card">
+        <div class="horde-head"><span id="level-name" class="level-name">The Horde</span> <span class="muted small">level <b id="level">1</b></span></div>
+        <div class="bar"><div id="level-bar"></div></div>
+        <div class="horde-foot"><b id="total" class="total">0</b> <span class="muted small">drops of sweat fed</span> <span id="rate" class="muted small"></span></div>
+      </div>
+      <div class="top-actions">
+        <button id="view" class="chip" title="Switch between the 3D and the flat 2D view">2D view</button>
+        <span id="conn" class="status chip" data-s="connecting">connecting…</span>
+      </div>
+    </header>
+
+    <aside id="roster" class="card roster">
+      <div class="label">On the ring</div>
+      <ol id="riders"></ol>
+      <div id="watchers" class="muted small"></div>
+    </aside>
+    <div id="feed" class="feed" aria-live="polite"></div>
+    <div id="frenzy" class="frenzy" hidden>Feeding frenzy <b>×1.5</b></div>
+    <div id="banner" class="banner" hidden></div>
+
+    <!-- Setup -->
+    <section id="setup" class="panel">
+      <h1><span class="me">●</span> Feed the Horde</h1>
+      <p class="story">
+        The undead are restless. Only one thing keeps them behind the barrier: <b>sweat</b>. Everyone riding right now
+        feeds the same horde. The harder you work (relative to <i>your</i> FTP), the more it eats, and the calmer it
+        stays. Ride your blocks on target to raise your multiplier; when three of you hit your targets together, the
+        horde goes into a feeding frenzy.
+      </p>
+
+      <div class="grid">
+        <bm-field label="Your name" size="sm"><input id="name" maxlength="24" autocomplete="nickname" placeholder="Guest" /></bm-field>
+        <bm-field label="Your FTP" size="sm"><input id="ftp" type="number" min="50" max="600" step="1" placeholder="e.g. 220" /><span slot="end">W</span></bm-field>
+      </div>
+      <p id="ftp-source" class="muted small"></p>
+      <bm-notice id="ftp-help" tone="info" hidden>
+        <b>Don't know your FTP?</b> Do a test first, the result is saved in this browser and filled in here:
+        <a href="../ftp20/">20-min FTP test</a> (~50 min, the classic) or the
+        <a href="../zombie-ramp/">Zombie Ramp</a> (ramp test, 15–30 min). For a first rough guess: about 2.5 W per kg of
+        body weight.
+      </bm-notice>
+
+      <div class="pick-head">
+        <h2>Workout</h2>
+        <div class="seg" role="radiogroup" aria-label="Length">
+          <button role="radio" id="len-short" aria-checked="true">Short ~20 min</button>
+          <button role="radio" id="len-full" aria-checked="false">Full</button>
+        </div>
+      </div>
+      <div id="workouts" class="workouts" role="radiogroup" aria-label="Workout"></div>
+
+      <bm-check id="erg-row" description="The trainer holds each block's target (sprints and free play stay free). Off: you match the target with gears and cadence.">
+        <input id="erg" type="checkbox" /> Use ERG for the targets
+      </bm-check>
+
+      <bm-fieldset legend="Trainer" appearance="bare" orientation="horizontal">
+        <bm-check><input type="radio" name="source" value="real" checked /> Bluetooth trainer or power meter</bm-check>
+        <bm-check><input type="radio" name="source" value="sim" /> Simulated trainer</bm-check>
+      </bm-fieldset>
+      <div class="row">
+        <bm-button id="connect-trainer">Connect trainer</bm-button>
+        <span id="trainer-status" class="status">disconnected</span>
+      </div>
+      <div class="row">
+        <bm-button id="connect-hrm">Connect heart rate (optional)</bm-button>
+        <span id="hrm-status" class="status">disconnected</span>
+      </div>
+      <bm-notice id="bt-warning" tone="warning" hidden></bm-notice>
+      <p id="start-hint" class="muted small"></p>
+      <bm-button id="start" variant="primary" full-width disabled>Start feeding</bm-button>
+      <div id="records" class="records muted small"></div>
+    </section>
+
+    <!-- Riding -->
+    <div id="hud" hidden>
+      <div class="card me-card">
+        <div class="me-top">
+          <div>
+            <div id="w-title" class="label">Free play</div>
+            <div id="b-label" class="block-label">–</div>
+          </div>
+          <div class="mult" title="Your multiplier: every block on target climbs a step">
+            <b id="mult">×1</b>
+            <span id="streak" class="streak"></span>
+          </div>
+        </div>
+        <div class="me-mid">
+          <div><b id="b-left" class="big">–</b><span id="b-left-label" class="label">left in block</span></div>
+          <div class="power"><b id="power" class="huge">–</b><span class="unit">W</span></div>
+        </div>
+        <div class="gauge" aria-hidden="true">
+          <div id="g-band" class="g-band"></div>
+          <div id="g-marker" class="g-marker"></div>
+        </div>
+        <div class="gauge-scale small"><span id="target">–</span><span id="pct" class="muted"></span></div>
+        <div id="hint" class="hint"></div>
+        <div class="me-stats small">
+          <span>cadence <b id="cad">–</b></span>
+          <span>HR <b id="hr">–</b></span>
+          <span>sweat <b id="my-sweat">0</b></span>
+          <span id="my-rate" class="muted"></span>
+        </div>
+        <div id="governed" class="warn small" hidden>Your sweat is capped: your power is far above the FTP you entered for a long time. Is your FTP right?</div>
+        <div id="profile" class="profile"></div>
+        <div id="next" class="muted small"></div>
+        <div class="row end">
+          <bm-button id="mute" size="sm">🔊</bm-button>
+          <bm-button id="stop" size="sm" variant="danger">End</bm-button>
+        </div>
+      </div>
+      <details id="sim-panel" class="card sim" hidden open>
+        <summary class="label">Simulated rider</summary>
+        <label><input id="sim-follow" type="checkbox" checked /> follow the target</label>
+        <div>power <input id="sim-power" type="range" min="0" max="700" step="5" value="180" /> <span id="sim-power-v">180</span> W</div>
+        <div>cadence <input id="sim-cadence" type="range" min="0" max="130" value="90" /> <span id="sim-cadence-v">90</span> rpm</div>
+      </details>
+    </div>
+
+    <!-- Result -->
+    <section id="result" class="panel" hidden>
+      <div id="r-title" class="muted"></div>
+      <h1>You fed the horde</h1>
+      <div class="sweat-result"><b id="r-sweat">0</b><span class="unit">drops</span></div>
+      <div id="r-pb" class="pb"></div>
+      <div class="facts">
+        <div><span class="label">Blocks on target</span><b id="r-blocks">–</b></div>
+        <div><span class="label">Best streak</span><b id="r-streak">–</b></div>
+        <div><span class="label">Top multiplier</span><b id="r-mult">–</b></div>
+        <div><span class="label">Ridden</span><b id="r-time">–</b></div>
+        <div><span class="label">Avg power</span><b id="r-avg">–</b></div>
+        <div><span class="label">All-time (this browser)</span><b id="r-life">–</b></div>
+      </div>
+      <bm-button id="again" variant="primary" full-width>Ride again</bm-button>
+    </section>
+
+    <script type="module" src="../src/horde/main.ts"></script>
+  </body>
+</html>

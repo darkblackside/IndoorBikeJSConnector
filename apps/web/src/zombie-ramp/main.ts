@@ -10,6 +10,7 @@ import "@darkblackside/ui/tag.js";
 import "./style.css";
 import { IndoorBike, type ProtocolName, type SpinDownProgress } from "indoor-bike-js-connector";
 import { spinDownText } from "../common/spinDown.ts";
+import { saveFtp } from "../common/profile.ts";
 import {
   createSimulatedHeartRateMonitor,
   createSimulatedTrainer,
@@ -592,6 +593,11 @@ function showResult(r: RampResult, reason: string) {
   $("#r-max").textContent = w(r.maxPower);
   $("#r-hr").textContent = r.maxHeartRate === undefined ? "–" : `${r.maxHeartRate} bpm`;
   $("#r-time").textContent = mmss(r.duration);
+  // The result becomes the FTP for the online games (Feed the Horde reads it from this browser's storage).
+  if (r.ftp !== undefined) {
+    saveFtp(r.ftp, "zombie-ramp");
+    $("#ftp-note").textContent += " Saved as your FTP for the online games.";
+  }
   lastResult = r;
   const s = activity?.summary;
   const or = (v: number | undefined, unit: string) => (v === undefined ? "–" : `${v} ${unit}`);
