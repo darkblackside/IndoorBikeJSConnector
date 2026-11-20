@@ -1,5 +1,6 @@
-# Publishes the web app (apps/web) (game hub, Zombie Ramp, hidden /debug/ bench) to GitHub Pages on every push to main:
-# https://darkblackside.github.io/IndoorBikeJSConnector/ (Zombie Ramp under /zombie-ramp/, debug bench under /debug/).
+# The app lives on the game server (https://sweat-games.lightwhiteside.de, the container from docker.yml). GitHub
+# Pages only redirects the old addresses there (https://darkblackside.github.io/IndoorBikeJSConnector/<page>/),
+# built by scripts/pages-redirect.mjs. Repository variable SERVER_ORIGIN overrides the target.
 # One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
 name: Pages
 on:
@@ -17,28 +18,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: npm
-          # @darkblackside/ui (web UI) comes from GitHub Packages (NODE_AUTH_TOKEN at npm ci)
-          registry-url: https://npm.pkg.github.com
-          scope: "@darkblackside"
-      - run: npm ci
+      - run: node scripts/pages-redirect.mjs pages-dist "$SERVER_ORIGIN"
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: npm test
-      # Relative asset URLs (vite base "./"), so the pages work under /IndoorBikeJSConnector/.
-      # The multiplayer server for the Online games: repository variable SERVER_URL (e.g. wss://horde.example.com).
-      - run: npm run build:web
-        env:
-          VITE_SERVER_URL: ${{ vars.SERVER_URL }}
+          SERVER_ORIGIN: ${{ vars.SERVER_ORIGIN }}
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/web/dist
+          path: pages-dist
 
   deploy:
     needs: build

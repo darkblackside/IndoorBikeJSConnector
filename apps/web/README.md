@@ -21,5 +21,5 @@ The browser frontend (Vite + TypeScript). `npm run dev` from the root, then:
 To add a game to the hub, add a page (and its entry in `vite.config.ts` `input`) and list it in `src/home/games.ts`
 (`offlineGames` or `onlineGames`).
 
-The server URL is `VITE_SERVER_URL` at build time; otherwise `ws://<this host>:8787` in dev, and the page's own origin in a
+The server URL is `VITE_SERVER_URL` at build time (normally unset); otherwise `ws://<this host>:8787` in dev, and the page's own origin in a
 production build (the container serves the web app and the game server together).
