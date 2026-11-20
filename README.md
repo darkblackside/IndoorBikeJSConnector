@@ -13,7 +13,7 @@ Games and training apps for smart trainers in the browser. This repository is an
 tab has the single-player games (the Zombie Ramp ramp test and the 20-min FTP test), the **Online** tab has the co-op game Feed the Horde
 (on the same server). Everything also runs with simulated devices. Developers: the debug bench for the connector is not linked from
 the app, it is at [/debug/](https://sweat-games.lightwhiteside.de/debug/). The server runs the container image from `main` (`.github/workflows/docker.yml`,
-[apps/server](apps/server/README.md)); the old GitHub Pages address only redirects there.
+[apps/server](apps/server/README.md)).
 
 ## Architecture
 

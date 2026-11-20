@@ -3,7 +3,7 @@
 `impressum/index.html` and `datenschutz/index.html` (German, static HTML, styled by `src/legal/`) are linked from
 the hub's footer; every game links back to the hub. Modelled on the Darkspace portal's pages. They cover
 `https://sweat-games.lightwhiteside.de` (the container, deployed by `darkblackside/infrastructure`,
-`light-server/sweat-games`); GitHub Pages only redirects the old address there.
+`light-server/sweat-games`), the only deployment.
 
 **The privacy policy makes promises about the code and the server. Change it in the same PR as anything below**, and
 update its date ("Stand").
@@ -19,7 +19,7 @@ update its date ("Stand").
 | Server logs (Traefik access log, with IPs) ≤ 7 days, not backed up | infrastructure: `setup-log-rotation.sh` (`ACCESS_LOG_ROTATE=7`) |
 | Monitoring copy without IP/User-Agent/query, 14 days | infrastructure: Alloy, Loki/Tempo retention (same promise as Kleingarten's policy) |
 | CrowdSec reports IPs of detected attacks to CrowdSec SAS | infrastructure: `light-server/crowdsec` (Central API enabled by default) |
-| Hosting netcup (Germany); GitHub (USA, DPF) only for the redirect from the old Pages address | `.github/workflows/pages.yml` publishes redirects only, never the app |
+| Hosting netcup (Germany) only; nothing in third countries | No other deployment (GitHub Pages was removed). Adding one → new policy section first |
 | Operator, address, phone, e-mail, supervisory authority (LDI NRW) | Same as the Darkspace portal's Impressum: change both together |
 
 Adding something that collects more (accounts, chat, leaderboards with names, analytics, a new third party): add a

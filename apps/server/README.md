@@ -68,9 +68,8 @@ docker run -d --name indoor-bike -p 8787:8787 -v horde-data:/data ghcr.io/darkbl
   (`https://`), and the WebSocket then is `wss://` on the same host automatically.
 - Health check: `GET /__healthcheck` (also the image's `HEALTHCHECK`).
 - Run one instance: the horde total and the bots live in that process.
-- This is the real app: `https://sweat-games.lightwhiteside.de` (infrastructure repo, `light-server/sweat-games`).
-  GitHub Pages only redirects the old `darkblackside.github.io/IndoorBikeJSConnector/` addresses there
-  (`.github/workflows/pages.yml`, `scripts/pages-redirect.mjs`).
+- This is the app: `https://sweat-games.lightwhiteside.de` (infrastructure repo, `light-server/sweat-games`). There is
+  no other deployment.
 
 Building locally needs a GitHub token with `read:packages` (for `@darkblackside/ui`) as a build secret; it never ends
 up in the image:
