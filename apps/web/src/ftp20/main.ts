@@ -10,6 +10,7 @@ import "@darkblackside/ui/tag.js";
 import "./style.css";
 import { IndoorBike, type ProtocolName, type SpinDownProgress } from "indoor-bike-js-connector";
 import { spinDownText } from "../common/spinDown.ts";
+import { saveFtp } from "../common/profile.ts";
 import {
   createSimulatedHeartRateMonitor,
   createSimulatedTrainer,
@@ -769,6 +770,11 @@ function showResult(r: Ftp20Result, reason: string) {
   const weight = $<HTMLInputElement>("#cfg-weight").valueAsNumber;
   $("#wkg").textContent = r.ftp !== undefined && weight > 0 ? `${(r.ftp / weight).toFixed(2)} W/kg` : "";
   $("#ftp-note").textContent = resultNote(r, cfg);
+  // A clean test becomes the FTP for the online games (Feed the Horde reads it from this browser's storage).
+  if (r.ftp !== undefined && r.reliable) {
+    saveFtp(r.ftp, "ftp20");
+    $("#ftp-note").textContent += " Saved as your FTP for the online games.";
+  }
   // The pacing verdict is about a full 20-minute effort; for a test cut short it would mislead.
   $("#pacing-note").textContent = r.complete ? (pacingSummary(r) ?? "") : "";
   $("#r-avg-label").textContent = r.complete ? "20-min avg power" : "Avg power (test so far)";

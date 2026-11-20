@@ -24,5 +24,13 @@ export const offlineGames: GameEntry[] = [
   },
 ];
 
-/** Multiplayer games (apps/server). None yet. */
-export const onlineGames: GameEntry[] = [];
+/** Multiplayer games (apps/server). */
+export const onlineGames: GameEntry[] = [
+  {
+    title: "Feed the Horde",
+    href: "./horde/",
+    description:
+      "Co-op with everyone online: the undead are kept behind the barrier only by your sweat. Ride free or pick a workout (recovery to VO2max and sprints); blocks on target raise your multiplier, three riders on target at once start a feeding frenzy. Sweat is counted relative to your FTP, so everyone feeds equally hard.",
+    tags: ["Co-op", "Workouts", "Free play", "Needs your FTP"],
+  },
+];

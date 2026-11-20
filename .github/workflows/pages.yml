@@ -32,7 +32,10 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npm test
       # Relative asset URLs (vite base "./"), so the pages work under /IndoorBikeJSConnector/.
+      # The multiplayer server for the Online games: repository variable SERVER_URL (e.g. wss://horde.example.com).
       - run: npm run build:web
+        env:
+          VITE_SERVER_URL: ${{ vars.SERVER_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/web/dist

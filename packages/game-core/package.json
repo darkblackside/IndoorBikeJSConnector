@@ -25,6 +25,11 @@
       "types": "./dist/ftp20/index.d.ts",
       "import": "./dist/ftp20/index.js"
     },
+    "./horde": {
+      "indoor-bike-source": "./src/horde/index.ts",
+      "types": "./dist/horde/index.d.ts",
+      "import": "./dist/horde/index.js"
+    },
     "./net": {
       "indoor-bike-source": "./src/net/index.ts",
       "types": "./dist/net/index.d.ts",

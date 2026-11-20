@@ -16,9 +16,9 @@ import {
   type RiderSample,
 } from "@indoor-bike/game-core/net";
 
-/** Server URL: `VITE_SERVER_URL` at build time, otherwise the dev server on this host. */
+/** Server URL: `VITE_SERVER_URL` at build time (empty counts as unset), otherwise the dev server on this host. */
 export const defaultServerUrl = (): string =>
-  import.meta.env.VITE_SERVER_URL ?? `${location.protocol === "https:" ? "wss" : "ws"}://${location.hostname}:8787`;
+  import.meta.env.VITE_SERVER_URL || `${location.protocol === "https:" ? "wss" : "ws"}://${location.hostname}:8787`;
 
 /** Samples are sent at most this often (the trainer reports several times per second). */
 const SAMPLE_INTERVAL_MS = 250;

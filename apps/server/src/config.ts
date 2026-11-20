@@ -4,6 +4,10 @@ export interface ServerConfig {
   port: number;
   /** Browser origins allowed to open a WebSocket (the web app's dev server and the GitHub Pages site). */
   allowedOrigins: string[];
+  /** Where the horde's total sweat is kept (JSON). Empty: in memory only (tests). */
+  hordeDataFile: string;
+  /** Run the simulated riders in the horde room. */
+  hordeBots: boolean;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -14,5 +18,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       .split(",")
       .map((o) => o.trim())
       .filter(Boolean),
+    hordeDataFile: env.HORDE_DATA_FILE ?? "data/horde.json",
+    hordeBots: !["0", "false", "off", "no"].includes((env.HORDE_BOTS ?? "1").toLowerCase()),
   };
 }
