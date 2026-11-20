@@ -40,7 +40,7 @@ const COLORS = 12;
 
 interface Person {
   session?: RiderSession;
-  input?: RiderInput & { heartRate: number; at: number };
+  input?: RiderInput & { at: number };
 }
 
 /**
@@ -82,7 +82,7 @@ export class HordeRoom extends Room<{ state: HordeState }> {
       person.input = {
         power: sample.power ?? 0,
         cadence: sample.cadence ?? 0,
-        heartRate: sample.heartRate ?? 0,
+        // A heart rate is health data (Art. 9 GDPR): never kept or synced to other clients (privacy policy).
         at: this.clock.currentTime,
       };
     },
@@ -158,7 +158,6 @@ export class HordeRoom extends Room<{ state: HordeState }> {
       const events = session.tick(dt, fresh, bonus);
       fed += session.sweat - before;
       rate += session.rate;
-      rider.heartRate = Math.round(fresh?.heartRate ?? 0);
       rider.cadence = Math.round(fresh?.cadence ?? 0);
       this.writeRider(rider, session);
       this.handle(id, rider, events);

@@ -27,7 +27,7 @@ export class RideRoom extends Room<{ state: RideState }> {
       if (!rider || !sample) return;
       rider.power = Math.round(sample.power ?? 0);
       rider.cadence = Math.round(sample.cadence ?? 0);
-      rider.heartRate = Math.round(sample.heartRate ?? 0);
+      // No heart rate: health data (Art. 9 GDPR), see the privacy policy (apps/web/LEGAL.md).
     },
     ready: (client: Client, message: ClientMessages["ready"]) => {
       const rider = this.state.riders.get(client.sessionId);
