@@ -2,7 +2,7 @@
 export interface ServerConfig {
   /** Port the HTTP/WebSocket server will listen on. */
   port: number;
-  /** Browser origins allowed to open a WebSocket (the web app's dev server and the GitHub Pages site). */
+  /** Browser origins allowed to open a WebSocket besides the server's own pages (default: the web app's dev server). */
   allowedOrigins: string[];
   /** Where the horde's total sweat is kept (JSON). Empty: in memory only (tests). */
   hordeDataFile: string;
@@ -16,7 +16,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const port = Number(env.PORT ?? 8787);
   return {
     port: Number.isInteger(port) && port > 0 ? port : 8787,
-    allowedOrigins: (env.ALLOWED_ORIGINS ?? "http://localhost:5173,https://darkblackside.github.io")
+    allowedOrigins: (env.ALLOWED_ORIGINS ?? "http://localhost:5173")
       .split(",")
       .map((o) => o.trim())
       .filter(Boolean),

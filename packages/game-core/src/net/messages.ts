@@ -5,7 +5,7 @@
  *
  * Bump `PROTOCOL_VERSION` on every incompatible change: the server turns away clients with another version.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** Room name the server registers and clients join (`client.joinOrCreate(RIDE_ROOM, joinOptions)`). */
 export const RIDE_ROOM = "ride";
@@ -21,11 +21,13 @@ export interface JoinOptions {
   weightKg?: number;
 }
 
-/** What a rider's devices report; clients send it a few times per second. */
+/**
+ * What a rider's devices report; clients send it a few times per second. Never a heart rate: that is health data
+ * (Art. 9 GDPR) and stays on the rider's device (privacy policy, apps/web/LEGAL.md).
+ */
 export interface RiderSample {
   power?: number;
   cadence?: number;
-  heartRate?: number;
 }
 
 /** Client -> server messages (`room.send(type, payload)`), by type. */
@@ -54,7 +56,8 @@ const inRange = (v: unknown, max: number): v is number | undefined =>
 /** Validated sample (plausible ranges only), or undefined to drop it. */
 export function checkSample(m: unknown): RiderSample | undefined {
   if (typeof m !== "object" || m === null) return undefined;
-  const { power, cadence, heartRate } = m as Record<string, unknown>;
-  if (!inRange(power, 3000) || !inRange(cadence, 250) || !inRange(heartRate, 250)) return undefined;
-  return { power, cadence, heartRate };
+  // Only these fields are picked: anything else a client sends (e.g. a heart rate) is dropped here.
+  const { power, cadence } = m as Record<string, unknown>;
+  if (!inRange(power, 3000) || !inRange(cadence, 250)) return undefined;
+  return { power, cadence };
 }

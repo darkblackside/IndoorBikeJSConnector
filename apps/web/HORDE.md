@@ -16,6 +16,8 @@ opens, so you watch the arena (and the other riders) while you set up.
 - **Workout**: free play or one of the workouts below, each as **Short (~20 min)** or **Full**.
 - **ERG** (optional): the trainer holds the middle of each block's band. Sprints and free play always ride free.
 - **Trainer**: Bluetooth trainer/power meter, or the simulated trainer (with a "follow the target" rider for testing).
+- **Heart rate** (optional strap) is shown on your own screen only. It is never sent to the server: it is health data
+  (Art. 9 GDPR), and the [privacy policy](LEGAL.md) promises that.
 
 ## Sweat
 

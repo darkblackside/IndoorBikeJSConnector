@@ -109,7 +109,6 @@ export const HordeRider = schema(
     intensity: t.float32(),
     power: t.uint16(),
     cadence: t.uint8(),
-    heartRate: t.uint8(),
     onTarget: t.boolean(),
     multiplier: t.float32(),
     streak: t.uint16(),

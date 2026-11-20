@@ -40,7 +40,7 @@ const COLORS = 12;
 
 interface Person {
   session?: RiderSession;
-  input?: RiderInput & { heartRate: number; at: number };
+  input?: RiderInput & { at: number };
 }
 
 /**
@@ -82,7 +82,6 @@ export class HordeRoom extends Room<{ state: HordeState }> {
       person.input = {
         power: sample.power ?? 0,
         cadence: sample.cadence ?? 0,
-        heartRate: sample.heartRate ?? 0,
         at: this.clock.currentTime,
       };
     },
@@ -158,7 +157,6 @@ export class HordeRoom extends Room<{ state: HordeState }> {
       const events = session.tick(dt, fresh, bonus);
       fed += session.sweat - before;
       rate += session.rate;
-      rider.heartRate = Math.round(fresh?.heartRate ?? 0);
       rider.cadence = Math.round(fresh?.cadence ?? 0);
       this.writeRider(rider, session);
       this.handle(id, rider, events);
@@ -174,7 +172,6 @@ export class HordeRoom extends Room<{ state: HordeState }> {
       fed += session.sweat - before;
       rate += session.rate;
       rider.cadence = input.cadence;
-      rider.heartRate = Math.round(60 + session.intensity * 100);
       this.writeRider(rider, session);
       this.handle(bot.id, rider, events);
       if (session.done) this.director!.finish(bot);

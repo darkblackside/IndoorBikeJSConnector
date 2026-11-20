@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 
 // The web frontend: game hub (index.html, Offline/Online tabs), the Zombie Ramp game (zombie-ramp/), the 20-minute
-// FTP test (ftp20/), the online co-op game Feed the Horde (horde/) and the hidden debug bench (debug/, not linked from the app; reachable by its URL only).
+// FTP test (ftp20/), the online co-op game Feed the Horde (horde/), the legal pages (impressum/, datenschutz/) and the hidden debug bench (debug/, not linked from the app; reachable by its URL only).
 // The workspace packages (indoor-bike-js-connector, @indoor-bike/game-core) are used from their TypeScript
 // sources through the "indoor-bike-source" export condition, so no package build is needed for dev or build.
 //
@@ -30,6 +30,8 @@ export default defineConfig(({ mode }) => ({
         ftp20: page("ftp20/index.html"),
         horde: page("horde/index.html"),
         debug: page("debug/index.html"),
+        impressum: page("impressum/index.html"),
+        datenschutz: page("datenschutz/index.html"),
       },
     },
   },

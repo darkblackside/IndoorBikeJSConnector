@@ -9,10 +9,11 @@ Games and training apps for smart trainers in the browser. This repository is an
 | `apps/web` | `@indoor-bike/web` (private) | Frontend (Vite, TypeScript, **three.js**): game hub with Offline/Online tabs, the [Zombie Ramp](apps/web/ZOMBIE_RAMP.md) and [20-min FTP test](apps/web/FTP20.md) games, the online co-op game [Feed the Horde](apps/web/HORDE.md), a hidden debug bench, the multiplayer client. [Details](apps/web/README.md) | Browser |
 | `apps/server` | `@indoor-bike/server` (private) | Multiplayer backend (Node, TypeScript, **Colyseus** over WebSocket), no accounts: the persistent Feed the Horde world with simulated riders, and a group-ride skeleton. One container image with the web app included, published to ghcr.io. [Details](apps/server/README.md) | Node |
 
-**Try it:** [the game hub](https://darkblackside.github.io/IndoorBikeJSConnector/) in Chrome or Edge: the **Offline**
+**Try it:** [the game hub](https://sweat-games.lightwhiteside.de/) in Chrome or Edge: the **Offline**
 tab has the single-player games (the Zombie Ramp ramp test and the 20-min FTP test), the **Online** tab has the co-op game Feed the Horde
-(it needs the game server; see [apps/server](apps/server/README.md) for hosting). Everything also runs with simulated devices. Developers: the debug bench for the connector is not linked from
-the app, it is at [/debug/](https://darkblackside.github.io/IndoorBikeJSConnector/debug/). Deployed from `main` by `.github/workflows/pages.yml`.
+(on the same server). Everything also runs with simulated devices. Developers: the debug bench for the connector is not linked from
+the app, it is at [/debug/](https://sweat-games.lightwhiteside.de/debug/). The server runs the container image from `main` (`.github/workflows/docker.yml`,
+[apps/server](apps/server/README.md)).
 
 ## Architecture
 
@@ -37,7 +38,7 @@ the app, it is at [/debug/](https://darkblackside.github.io/IndoorBikeJSConnecto
   (`apps/web/src/zombie-ramp/cityRenderer.ts`); the dev-only sandbox page (`/sandbox/`) shows the same `CityWorld` in three.js.
 - **Multiplayer via Colyseus.** The room state (`RideState`, Colyseus schema) and the client messages live in
   `@indoor-bike/game-core/net`, so server and client share one definition. The server owns the state; Colyseus syncs
-  it to every client as binary delta patches. Clients only send their device samples (power, cadence, heart rate).
+  it to every client as binary delta patches. Clients only send their device samples (power, cadence; never the heart rate, which is health data and stays in the browser).
 - **TypeScript everywhere**, strict, one shared `tsconfig.base.json`.
 
 ### Next steps (not done yet)
@@ -69,7 +70,7 @@ npm install          # installs and links all workspaces
 npm test             # tests of every workspace (Node, no hardware needed)
 npm run typecheck    # every workspace with its own tsconfig
 npm run build        # connector, game-core and server -> their dist/
-npm run build:web    # web app -> apps/web/dist (what GitHub Pages serves)
+npm run build:web    # web app -> apps/web/dist (what the container serves)
 npm run dev          # web app at http://localhost:5173 (hub; /zombie-ramp/, /ftp20/, /horde/, /debug/, /sandbox/)
 npm run dev:https    # same over HTTPS on your LAN, for testing from a phone/tablet
 npm run dev:server   # multiplayer server at ws://localhost:8787 (restarts on changes)

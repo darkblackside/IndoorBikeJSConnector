@@ -18,8 +18,10 @@ describe("net: join options", () => {
 
 describe("net: samples", () => {
   it("keeps plausible values and drops nonsense", () => {
-    expect(checkSample({ power: 250, cadence: 90 })).toEqual({ power: 250, cadence: 90, heartRate: undefined });
-    for (const bad of [null, "x", { power: -1 }, { power: 1e6 }, { cadence: Number.NaN }, { heartRate: "120" }]) {
+    expect(checkSample({ power: 250, cadence: 90 })).toEqual({ power: 250, cadence: 90 });
+    // A heart rate is health data: dropped, never passed on to the room state.
+    expect(checkSample({ power: 250, cadence: 90, heartRate: 140 })).toEqual({ power: 250, cadence: 90 });
+    for (const bad of [null, "x", { power: -1 }, { power: 1e6 }, { cadence: Number.NaN }]) {
       expect(checkSample(bad)).toBeUndefined();
     }
   });

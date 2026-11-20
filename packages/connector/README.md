@@ -8,9 +8,9 @@ in either **ERG** (hold a target wattage) or **SIM** (road grade/wind) mode.
 This package lives in the `packages/connector` workspace of the
 [IndoorBikeJSConnector](https://github.com/darkblackside/IndoorBikeJSConnector) monorepo.
 
-**Try it:** [debug bench](https://darkblackside.github.io/IndoorBikeJSConnector/debug/) and the
-[Zombie Ramp](https://darkblackside.github.io/IndoorBikeJSConnector/zombie-ramp/) FTP test game, in Chrome or Edge
-(both also run with simulated devices). Deployed from `main` by `.github/workflows/pages.yml`.
+**Try it:** [debug bench](https://sweat-games.lightwhiteside.de/debug/) and the
+[Zombie Ramp](https://sweat-games.lightwhiteside.de/zombie-ramp/) FTP test game, in Chrome or Edge
+(both also run with simulated devices).
 
 | Protocol | Devices | Data | ERG | SIM |
 | --- | --- | :-: | :-: | :-: |

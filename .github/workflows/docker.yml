@@ -52,7 +52,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # The web app's UI library comes from GitHub Packages (same access as the Pages and CI workflows).
+          # The web app's UI library comes from GitHub Packages (same access as the CI workflow).
           secrets: |
             npm_token=${{ secrets.GITHUB_TOKEN }}
           cache-from: type=gha

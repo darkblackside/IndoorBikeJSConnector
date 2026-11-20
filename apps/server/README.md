@@ -18,7 +18,7 @@ origin check for browsers; every message is validated and the server computes al
 | Variable | Default | What |
 | --- | --- | --- |
 | `PORT` | `8787` | HTTP/WebSocket port |
-| `ALLOWED_ORIGINS` | `http://localhost:5173,https://darkblackside.github.io` | Comma-separated browser origins allowed to open a WebSocket; others get 403 |
+| `ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated browser origins allowed to open a WebSocket besides the server's own pages; others get 403 |
 | `HORDE_DATA_FILE` | `data/horde.json` (relative to the working directory) | Where Feed the Horde keeps its total sweat. Written every 10 s and on shutdown (temp file + rename) |
 | `HORDE_BOTS` | `1` | `0` turns off the simulated riders |
 | `WEB_DIR` | empty (container: `/app/web`) | Built web app (`apps/web/dist`) to serve over HTTP on the same port. Empty: no frontend (in dev, Vite serves it) |
@@ -56,7 +56,7 @@ The image contains everything: the game server **and** the built web app, on one
 **Registry:** `.github/workflows/docker.yml` builds `apps/server/Dockerfile` and pushes it to the GitHub container
 registry as `ghcr.io/darkblackside/indoorbikejsconnector`: `latest` and `main` from `main`, `sha-<commit>` for every
 build, `1.2.3` and `1.2` from `v1.2.3` tags. Pull requests only build. The workflow's `GITHUB_TOKEN` must be allowed
-to read `@darkblackside/ui` (package settings, *Manage Actions access*, as for the Pages workflow). New GHCR packages
+to read `@darkblackside/ui` (package settings, *Manage Actions access*, as for the CI workflow). New GHCR packages
 are private: to pull without logging in, make it public in the package settings.
 
 ```sh
@@ -68,9 +68,8 @@ docker run -d --name indoor-bike -p 8787:8787 -v horde-data:/data ghcr.io/darkbl
   (`https://`), and the WebSocket then is `wss://` on the same host automatically.
 - Health check: `GET /__healthcheck` (also the image's `HEALTHCHECK`).
 - Run one instance: the horde total and the bots live in that process.
-- The GitHub Pages site can use this server too: set the repository variable `SERVER_URL` (e.g. `wss://games.example.com`,
-  passed to the Pages build by `.github/workflows/pages.yml`) and keep `https://darkblackside.github.io` in
-  `ALLOWED_ORIGINS` (the default).
+- This is the app: `https://sweat-games.lightwhiteside.de` (infrastructure repo, `light-server/sweat-games`). There is
+  no other deployment.
 
 Building locally needs a GitHub token with `read:packages` (for `@darkblackside/ui`) as a build secret; it never ends
 up in the image:

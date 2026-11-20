@@ -144,7 +144,7 @@ function createBike(): IndoorBike {
     if (d.cadence !== undefined) latest.cadence = d.cadence;
     if (d.heartRate !== undefined) latest.heartRate = d.heartRate;
     latest.at = performance.now();
-    if (riding) conn?.sample({ power: latest.power, cadence: latest.cadence, heartRate: latest.heartRate || undefined });
+    if (riding) conn?.sample({ power: latest.power, cadence: latest.cadence });
   });
   b.on("status", ({ device, status }) => {
     const t = device === "trainer";
@@ -690,7 +690,7 @@ function frame(now: number) {
       applyErg();
     }
     // Keep the server fed while riding even if the device goes quiet between notifications.
-    if (riding && performance.now() - latest.at < 3000) conn?.sample({ power: latest.power, cadence: latest.cadence, heartRate: latest.heartRate || undefined });
+    if (riding && performance.now() - latest.at < 3000) conn?.sample({ power: latest.power, cadence: latest.cadence });
   }
   requestAnimationFrame(frame);
 }
